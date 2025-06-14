@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Logo } from '@/components/shared/Logo';
 import { useAuth } from '@/hooks/useAuth';
-import { UserCircle, LogIn, LogOut, Bookmark, HomeIcon, UploadCloud } from 'lucide-react';
+import { UserCircle, LogIn, LogOut, Bookmark, HomeIcon, UploadCloud, Moon, Sun } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,15 +14,23 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useTheme } from "next-themes";
+import { useEffect, useState } from "react";
 
 export function Header() {
   const { user, signOut, isAuthenticated, loading } = useAuth();
+  const { theme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 max-w-screen-2xl items-center justify-between">
         <Logo />
-        <nav className="flex items-center gap-4">
+        <nav className="flex items-center gap-2 md:gap-4">
           <Button variant="ghost" asChild>
             <Link href="/" className="flex items-center gap-1">
               <HomeIcon className="mr-1 h-4 w-4" /> Home
@@ -36,6 +44,22 @@ export function Header() {
             </Button>
           )}
           
+          {mounted && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setTheme(theme === "light" ? "dark" : "light")}
+              aria-label="Toggle theme"
+              className="h-8 w-8 md:h-10 md:w-10"
+            >
+              {theme === "light" ? (
+                <Moon className="h-5 w-5" />
+              ) : (
+                <Sun className="h-5 w-5" />
+              )}
+            </Button>
+          )}
+
           {loading ? (
             <div className="h-8 w-20 animate-pulse rounded-md bg-muted"></div>
           ) : isAuthenticated && user ? (
@@ -98,4 +122,3 @@ export function Header() {
     </header>
   );
 }
-
