@@ -1,3 +1,4 @@
+
 "use client";
 
 import { Button } from "@/components/ui/button";
@@ -13,6 +14,10 @@ interface PaperFiltersProps {
   availableSubjects: string[];
   availableYears: number[];
 }
+
+const ALL_LEVELS_VALUE = "all-levels";
+const ALL_SUBJECTS_VALUE = "all-subjects";
+const ALL_YEARS_VALUE = "all-years";
 
 export function PaperFilters({ onFilterChange, availableSubjects, availableYears }: PaperFiltersProps) {
   const [query, setQuery] = useState("");
@@ -61,12 +66,15 @@ export function PaperFilters({ onFilterChange, availableSubjects, availableYears
         </div>
         <div>
           <Label htmlFor="level-filter" className="font-semibold">Level</Label>
-          <Select value={level} onValueChange={(value) => setLevel(value as PaperLevel | "")}>
+          <Select 
+            value={level || ""} // Select value itself can be "" for placeholder
+            onValueChange={(value) => setLevel(value === ALL_LEVELS_VALUE ? "" : value as PaperLevel | "")}
+          >
             <SelectTrigger id="level-filter" className="mt-1">
               <SelectValue placeholder="Select Level" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All Levels</SelectItem>
+              <SelectItem value={ALL_LEVELS_VALUE}>All Levels</SelectItem>
               {paperLevels.map((lvl) => (
                 <SelectItem key={lvl} value={lvl}>{lvl}</SelectItem>
               ))}
@@ -75,12 +83,15 @@ export function PaperFilters({ onFilterChange, availableSubjects, availableYears
         </div>
         <div>
           <Label htmlFor="subject-filter" className="font-semibold">Subject</Label>
-          <Select value={subject} onValueChange={(value) => setSubject(value)}>
+          <Select 
+            value={subject || ""} // Select value itself can be "" for placeholder
+            onValueChange={(value) => setSubject(value === ALL_SUBJECTS_VALUE ? "" : value)}
+          >
             <SelectTrigger id="subject-filter" className="mt-1">
               <SelectValue placeholder="Select Subject" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All Subjects</SelectItem>
+              <SelectItem value={ALL_SUBJECTS_VALUE}>All Subjects</SelectItem>
               {availableSubjects.map((sbj) => (
                 <SelectItem key={sbj} value={sbj}>{sbj}</SelectItem>
               ))}
@@ -89,12 +100,15 @@ export function PaperFilters({ onFilterChange, availableSubjects, availableYears
         </div>
         <div>
           <Label htmlFor="year-filter" className="font-semibold">Year</Label>
-          <Select value={year ? String(year) : ""} onValueChange={(value) => setYear(value ? parseInt(value) : "")}>
+          <Select 
+            value={year ? String(year) : ""} // Select value itself can be "" for placeholder
+            onValueChange={(value) => setYear(value === ALL_YEARS_VALUE ? "" : (value ? parseInt(value) : ""))}
+          >
             <SelectTrigger id="year-filter" className="mt-1">
               <SelectValue placeholder="Select Year" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All Years</SelectItem>
+              <SelectItem value={ALL_YEARS_VALUE}>All Years</SelectItem>
               {availableYears.map((yr) => (
                 <SelectItem key={yr} value={String(yr)}>{yr}</SelectItem>
               ))}
