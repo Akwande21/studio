@@ -1,3 +1,4 @@
+
 "use client";
 
 import { Button } from "@/components/ui/button";
@@ -13,20 +14,34 @@ export function DownloadPaperButton({ paperName, downloadUrl }: DownloadPaperBut
   const { toast } = useToast();
 
   const handleDownload = () => {
-    // This is a mock download. In a real app, this might point to a Firebase Storage URL
-    // or an API endpoint that serves the file.
-    toast({
-      title: "Download Started",
-      description: `Downloading ${paperName}... (mock action)`,
-    });
-    // For actual download, you might use an anchor tag:
-    // const link = document.createElement('a');
-    // link.href = downloadUrl;
-    // link.setAttribute('download', paperName.replace(/ /g, '_') + '.pdf'); // Or get actual filename
-    // document.body.appendChild(link);
-    // link.click();
-    // document.body.removeChild(link);
-    console.log(`Mock download for: ${paperName} from ${downloadUrl}`);
+    // This will attempt to download the file specified by downloadUrl.
+    // In a real app, downloadUrl should point to an accessible PDF file.
+    try {
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      // Suggest a filename for the download.
+      // Ensures it has a .pdf extension if not already in paperName or complex URL.
+      const filename = paperName.toLowerCase().endsWith('.pdf') 
+        ? paperName.replace(/ /g, '_')
+        : `${paperName.replace(/ /g, '_')}.pdf`;
+      link.setAttribute('download', filename); 
+      
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      toast({
+        title: "Download Initiated",
+        description: `Preparing to download ${filename}...`,
+      });
+    } catch (error) {
+      console.error("Download error:", error);
+      toast({
+        title: "Download Failed",
+        description: "Could not initiate the download. Please check the console for errors.",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
