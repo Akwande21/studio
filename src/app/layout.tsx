@@ -10,7 +10,7 @@ const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 const spaceGrotesk = Space_Grotesk({ subsets: ['latin'], variable: '--font-space-grotesk', weight: ['300', '400', '500', '600', '700'] });
 
 export const metadata: Metadata = {
-  title: 'PaperTrail - Your Academic Paper Hub',
+  title: 'PaperVault - Your Academic Paper Hub',
   description: 'Search, study, and discuss question papers with AI-powered tools.',
 };
 
