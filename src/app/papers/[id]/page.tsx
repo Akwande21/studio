@@ -1,3 +1,4 @@
+
 import { getPaperById } from '@/lib/data';
 import { PaperDetailClient } from '@/components/papers/PaperDetailClient';
 import { notFound } from 'next/navigation';
@@ -8,7 +9,14 @@ type Props = {
 };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const paper = await getPaperById(params.id);
+  // The runtime error "params should be awaited before using its properties"
+  // suggests that the `params` object passed by Next.js/Turbopack might be
+  // a thenable/awaitable proxy, even if its static type is just `{ id: string }`.
+  // To satisfy this runtime check while also passing TypeScript's strict checks,
+  // we cast `params` to `any` before awaiting it.
+  const resolvedParams = await (params as any);
+
+  const paper = await getPaperById(resolvedParams.id);
   if (!paper) {
     return {
       title: 'Paper Not Found',
