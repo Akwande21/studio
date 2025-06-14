@@ -1,9 +1,10 @@
+
 "use client";
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Logo } from '@/components/shared/Logo';
 import { useAuth } from '@/hooks/useAuth';
-import { UserCircle, LogIn, LogOut, Bookmark, HomeIcon } from 'lucide-react';
+import { UserCircle, LogIn, LogOut, Bookmark, HomeIcon, UploadCloud } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -24,13 +25,13 @@ export function Header() {
         <nav className="flex items-center gap-4">
           <Button variant="ghost" asChild>
             <Link href="/" className="flex items-center gap-1">
-              <HomeIcon className="h-4 w-4" /> Home
+              <HomeIcon className="mr-1 h-4 w-4" /> Home
             </Link>
           </Button>
           {isAuthenticated && (
             <Button variant="ghost" asChild>
               <Link href="/bookmarks" className="flex items-center gap-1">
-                <Bookmark className="h-4 w-4" /> Bookmarks
+                <Bookmark className="mr-1 h-4 w-4" /> Bookmarks
               </Link>
             </Button>
           )}
@@ -66,6 +67,14 @@ export function Header() {
                     Profile
                   </Link>
                 </DropdownMenuItem>
+                {/* Conceptual Admin Link - in a real app, check user.isAdmin or similar */}
+                <DropdownMenuItem asChild>
+                  <Link href="/admin/upload" className="cursor-pointer">
+                    <UploadCloud className="mr-2 h-4 w-4" />
+                    Upload Paper
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={signOut} className="cursor-pointer">
                   <LogOut className="mr-2 h-4 w-4" />
                   Sign Out
@@ -76,7 +85,7 @@ export function Header() {
             <>
               <Button variant="ghost" asChild>
                 <Link href="/auth/signin" className="flex items-center gap-1">
-                  <LogIn className="h-4 w-4" /> Sign In
+                  <LogIn className="mr-1 h-4 w-4" /> Sign In
                 </Link>
               </Button>
               <Button asChild>
@@ -89,3 +98,4 @@ export function Header() {
     </header>
   );
 }
+
