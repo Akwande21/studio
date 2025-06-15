@@ -7,8 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 
 type Operator = '+' | '-' | '×' | '÷' | 'xʸ';
-type UnaryOperationType = 'sqrt' | '1/x' | 'x²' | 'sin' | 'cos' | 'tan' | 'asin' | 'acos' | 'atan' | 'log' | 'ln' | '10ˣ' | 'eˣ';
-type MemoryOperationType = 'MC' | 'MR' | 'M+' | 'Min';
+type UnaryOperationType = 'sqrt' | 'x²' | 'sin' | 'cos' | 'tan' | 'log' | 'ln';
+type MemoryOperationType = 'MC' | 'MR' | 'M+';
 type ConstantType = 'π';
 
 
@@ -172,18 +172,12 @@ export function ScientificCalculator() {
 
     switch (operation) {
       case 'sqrt': result = inputValue < 0 ? null : Math.sqrt(inputValue); break;
-      case '1/x': result = inputValue === 0 ? null : 1 / inputValue; break;
       case 'x²': result = Math.pow(inputValue, 2); break;
       case 'sin': result = Math.sin(inputValue); break; // Assumes radians
       case 'cos': result = Math.cos(inputValue); break; // Assumes radians
       case 'tan': result = Math.tan(inputValue); break; // Assumes radians
-      case 'asin': result = (inputValue < -1 || inputValue > 1) ? null : Math.asin(inputValue); break;
-      case 'acos': result = (inputValue < -1 || inputValue > 1) ? null : Math.acos(inputValue); break;
-      case 'atan': result = Math.atan(inputValue); break;
       case 'log': result = inputValue <= 0 ? null : Math.log10(inputValue); break;
       case 'ln': result = inputValue <= 0 ? null : Math.log(inputValue); break;
-      case '10ˣ': result = Math.pow(10, inputValue); break;
-      case 'eˣ': result = Math.exp(inputValue); break;
       default: break;
     }
 
@@ -197,12 +191,12 @@ export function ScientificCalculator() {
 
   const handleMemoryOperation = (operation: MemoryOperationType) => {
     if (hasError && operation !== 'MC') return; // Allow MC even if error
-    const currentDisplayNumber = parseFloat(displayValue); // No error check here, M+ M- might work with error display if needed
+    const currentDisplayNumber = parseFloat(displayValue); 
 
     switch (operation) {
       case 'MC':
         setMemoryValue(0);
-        if (hasError) clearAll(); // Clear error if MC is pressed
+        if (hasError) clearAll(); 
         break;
       case 'MR':
         if (hasError) clearAll();
@@ -212,11 +206,6 @@ export function ScientificCalculator() {
       case 'M+':
         if (!hasError && !isNaN(currentDisplayNumber)) {
           setMemoryValue(memoryValue + currentDisplayNumber);
-        }
-        break;
-      case 'Min': // Store current display value in memory
-        if (!hasError && !isNaN(currentDisplayNumber)) {
-          setMemoryValue(currentDisplayNumber);
         }
         break;
     }
@@ -238,32 +227,20 @@ export function ScientificCalculator() {
     { label: 'MC', action: () => handleMemoryOperation('MC'), className: "bg-muted hover:bg-muted/80" },
     { label: 'MR', action: () => handleMemoryOperation('MR'), className: "bg-muted hover:bg-muted/80" },
     { label: 'M+', action: () => handleMemoryOperation('M+'), className: "bg-muted hover:bg-muted/80" },
-    { label: 'Min', action: () => handleMemoryOperation('Min'), className: "bg-muted hover:bg-muted/80" }, // M- or Store
-
+    { label: 'π', action: () => insertConstant('π'), className: "bg-accent/20 hover:bg-accent/40" },
+    
     // Scientific Functions Row 1
     { label: 'sin', action: () => handleUnaryOperation('sin'), className: "bg-muted hover:bg-muted/80" },
     { label: 'cos', action: () => handleUnaryOperation('cos'), className: "bg-muted hover:bg-muted/80" },
     { label: 'tan', action: () => handleUnaryOperation('tan'), className: "bg-muted hover:bg-muted/80" },
-    { label: 'π', action: () => insertConstant('π'), className: "bg-accent/20 hover:bg-accent/40" },
-    
-    // Scientific Functions Row 2
-    { label: 'asin', action: () => handleUnaryOperation('asin'), className: "bg-muted hover:bg-muted/80" },
-    { label: 'acos', action: () => handleUnaryOperation('acos'), className: "bg-muted hover:bg-muted/80" },
-    { label: 'atan', action: () => handleUnaryOperation('atan'), className: "bg-muted hover:bg-muted/80" },
     { label: 'xʸ', action: () => performOperation('xʸ'), className: "bg-accent/50 hover:bg-accent/70 text-accent-foreground" },
 
-    // Scientific Functions Row 3
+    // Scientific Functions Row 2 (Adjusted)
     { label: 'x²', action: () => handleUnaryOperation('x²'), className: "bg-muted hover:bg-muted/80" },
     { label: '√', action: () => handleUnaryOperation('sqrt'), className: "bg-muted hover:bg-muted/80" },
-    { label: '1/x', action: () => handleUnaryOperation('1/x'), className: "bg-muted hover:bg-muted/80" },
-    { label: '←', action: backspace, className: "bg-muted hover:bg-muted/80" },
-
-    // Scientific Functions Row 4
     { label: 'log₁₀', action: () => handleUnaryOperation('log'), className: "bg-muted hover:bg-muted/80" },
     { label: 'ln', action: () => handleUnaryOperation('ln'), className: "bg-muted hover:bg-muted/80" },
-    { label: '10ˣ', action: () => handleUnaryOperation('10ˣ'), className: "bg-muted hover:bg-muted/80" },
-    { label: 'eˣ', action: () => handleUnaryOperation('eˣ'), className: "bg-muted hover:bg-muted/80" },
-
+    
     // Control and Basic Ops Row
     { label: 'AC', action: clearAll, className: "bg-destructive/80 hover:bg-destructive/90 text-destructive-foreground" },
     { label: '±', action: toggleSign, className: "bg-muted hover:bg-muted/80" },
@@ -285,8 +262,9 @@ export function ScientificCalculator() {
     { label: '2', action: () => inputDigit('2') },
     { label: '3', action: () => inputDigit('3') },
     { label: '+', action: () => performOperation('+'), className: "bg-primary/80 hover:bg-primary/90 text-primary-foreground" },
-
-    { label: '0', action: () => inputDigit('0'), span: 2 },
+    
+    { label: '←', action: backspace, className: "bg-muted hover:bg-muted/80" },
+    { label: '0', action: () => inputDigit('0') },
     { label: '.', action: inputDecimal },
     { label: '=', action: handleEquals, className: "bg-green-500 hover:bg-green-600 text-white" },
   ];
