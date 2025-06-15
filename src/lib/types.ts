@@ -2,7 +2,7 @@
 export interface Question {
   id: string;
   text: string;
-  answer?: string; 
+  answer?: string;
 }
 
 // For user roles
@@ -17,34 +17,34 @@ export const educationalLevels: EducationalLevel[] = ["High School", "College", 
 export interface Paper {
   id: string;
   title: string;
-  level: EducationalLevel; // Changed from PaperLevel
+  level: EducationalLevel;
   subject: string;
   year: number;
   questions: Question[];
   averageRating: number;
   ratingsCount: number;
-  isBookmarked?: boolean; 
-  downloadUrl?: string; 
-  description?: string; 
+  isBookmarked?: boolean;
+  downloadUrl?: string;
+  description?: string;
 }
 
 export interface Comment {
   id: string;
-  paperId: string; 
+  paperId: string;
   userId: string;
   userName: string;
   userAvatar?: string;
   text: string;
   timestamp: string; // ISO string
-  parentId?: string; 
-  userRole?: UserRole; 
+  parentId?: string;
+  userRole?: UserRole;
 }
 
 export interface User {
   id: string;
   name: string;
   email: string;
-  role: UserRole; // Changed from PaperLevel
+  role: UserRole;
   avatarUrl?: string;
   dataAiHint?: string; // Added for placeholder consistency
 }
@@ -58,7 +58,7 @@ export interface Rating {
 
 export interface AuthContextType {
   user: User | null;
-  signIn: (credentials: { email: string }) => Promise<void>; // Simplified credentials for signIn
+  signIn: (credentials: { email: string }) => Promise<void>;
   signUp: (details: { name: string; email: string; role: UserRole }) => Promise<void>;
   signOut: () => void;
   loading: boolean;
@@ -69,10 +69,3 @@ export interface StudySuggestion {
   topics: string[];
   searchQueries: string[];
 }
-
-// Keep paperLevels for places that might still be using it before full refactor,
-// but ideally they should switch to educationalLevels or userRoles as appropriate.
-// For now, keeping it identical to UserRole for less breaking changes in unrelated parts.
-export type PaperLevel = "High School" | "College" | "University" | "Admin";
-export const paperLevels: PaperLevel[] = ["High School", "College", "University", "Admin"];
-
