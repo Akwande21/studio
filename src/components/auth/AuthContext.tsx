@@ -1,7 +1,7 @@
 
 "use client";
 import type { User, UserRole, AuthContextType } from '@/lib/types';
-import { createUser, loginUser } from '@/lib/data';
+import { createUser, loginUser, mockUsers } from '@/lib/data'; // Added mockUsers import
 import React, { createContext, useState, useEffect, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
 
@@ -16,22 +16,45 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     try {
-      const storedUser = localStorage.getItem(MOCK_USER_STORAGE_KEY);
-      if (storedUser) {
-        setUser(JSON.parse(storedUser));
+      const storedUserString = localStorage.getItem(MOCK_USER_STORAGE_KEY);
+      if (storedUserString) {
+        const loadedUserFromStorage: User = JSON.parse(storedUserString);
+        
+        // Ensure user from localStorage exists in the current mockUsers array.
+        // This handles cases where mockUsers is reset (e.g., dev server restart)
+        // but the user session persists in localStorage.
+        const userInMockData = mockUsers.find(u => u.id === loadedUserFromStorage.id);
+        if (!userInMockData) {
+          // If user is not in mockUsers, add them back.
+          // This makes the mock system behave more like a persistent DB for dev purposes.
+          // Check if user with same email already exists to avoid duplicates if ID generation was different
+          const existingUserByEmail = mockUsers.find(u => u.email === loadedUserFromStorage.email);
+          if (!existingUserByEmail) {
+            mockUsers.push(loadedUserFromStorage);
+          } else {
+            // If user with same email but different ID exists, update the stored user to use existing ID to avoid conflicts.
+            // This is an edge case for mock environments.
+            localStorage.setItem(MOCK_USER_STORAGE_KEY, JSON.stringify(existingUserByEmail));
+            setUser(existingUserByEmail);
+            setLoading(false);
+            return;
+          }
+        }
+        setUser(loadedUserFromStorage);
       }
     } catch (error) {
-      console.error("Failed to load user from localStorage", error);
+      console.error("Failed to load user from localStorage or sync with mock data", error);
+      // If there's an error (e.g., malformed JSON), clear the problematic item
+      localStorage.removeItem(MOCK_USER_STORAGE_KEY);
       setUser(null); 
     } finally {
       setLoading(false);
     }
   }, []);
 
-  const signIn = useCallback(async (credentials: { email: string }) => { // Simplified credentials
+  const signIn = useCallback(async (credentials: { email: string }) => { 
     setLoading(true);
     try {
-      // loginUser (from data.ts) is our mock API call to find a user
       const foundUser = await loginUser(credentials.email);
 
       if (foundUser) {
@@ -51,7 +74,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signUp = useCallback(async (details: { name: string; email: string; role: UserRole }) => {
     setLoading(true);
     try {
-      // createUser (from data.ts) is our mock API call to create and "save" a user
       const newUser = await createUser(details.name, details.email, details.role);
       setUser(newUser);
       localStorage.setItem(MOCK_USER_STORAGE_KEY, JSON.stringify(newUser));
@@ -75,4 +97,3 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     </AuthContext.Provider>
   );
 };
-

@@ -1,7 +1,7 @@
 
 import type { Paper, Comment, User, EducationalLevel, UserRole, Rating, Question } from './types'; // Updated imports
 
-const mockUsers: User[] = [
+export let mockUsers: User[] = [ // Changed to export let
   { id: 'user1', name: 'Alice Wonderland', email: 'alice@example.com', role: 'Admin', avatarUrl: 'https://placehold.co/100x100?text=A' , dataAiHint: 'user avatar' },
   { id: 'user2', name: 'Bob The Builder', email: 'bob@example.com', role: 'College', avatarUrl: 'https://placehold.co/100x100?text=B', dataAiHint: 'user avatar' },
   { id: 'user3', name: 'Charlie Brown', email: 'charlie@example.com', role: 'High School', avatarUrl: 'https://placehold.co/100x100?text=C', dataAiHint: 'user avatar' },
@@ -198,12 +198,13 @@ export const getUniqueYears = async (): Promise<number[]> => {
 
 export const createUser = async (name: string, email: string, role: UserRole): Promise<User> => { // Changed role type
   await new Promise(resolve => setTimeout(resolve, 500));
-  const existingUser = mockUsers.find(u => u.email === email);
-  if (existingUser) {
+  const existingUserByEmail = mockUsers.find(u => u.email === email);
+  if (existingUserByEmail) {
     throw new Error("User with this email already exists.");
   }
+  const newUserId = `user${mockUsers.length + 1}${Date.now()}`;
   const newUser: User = {
-    id: `user${mockUsers.length + 1}`,
+    id: newUserId,
     name,
     email,
     role,
