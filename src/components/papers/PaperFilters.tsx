@@ -5,12 +5,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { paperLevels, type PaperLevel } from "@/lib/types";
+import { educationalLevels, type EducationalLevel } from "@/lib/types"; // Changed import
 import { FilterIcon, SearchIcon, XIcon } from "lucide-react";
 import React, { useEffect, useState } from "react";
 
 interface PaperFiltersProps {
-  onFilterChange: (filters: { level?: PaperLevel; subject?: string; year?: number; query?: string }) => void;
+  onFilterChange: (filters: { level?: EducationalLevel; subject?: string; year?: number; query?: string }) => void; // Changed type
   availableSubjects: string[];
   availableYears: number[];
 }
@@ -21,7 +21,7 @@ const ALL_YEARS_VALUE = "all-years";
 
 export function PaperFilters({ onFilterChange, availableSubjects, availableYears }: PaperFiltersProps) {
   const [query, setQuery] = useState("");
-  const [level, setLevel] = useState<PaperLevel | "">("");
+  const [level, setLevel] = useState<EducationalLevel | "">(""); // Changed type
   const [subject, setSubject] = useState("");
   const [year, setYear] = useState<number | "">("");
 
@@ -33,7 +33,7 @@ export function PaperFilters({ onFilterChange, availableSubjects, availableYears
             subject: subject || undefined, 
             year: year || undefined 
         });
-    }, 300); // Debounce search query
+    }, 300); 
     return () => clearTimeout(timeoutId);
   }, [query, level, subject, year, onFilterChange]);
 
@@ -67,15 +67,15 @@ export function PaperFilters({ onFilterChange, availableSubjects, availableYears
         <div>
           <Label htmlFor="level-filter" className="font-semibold">Level</Label>
           <Select 
-            value={level || ""} // Select value itself can be "" for placeholder
-            onValueChange={(value) => setLevel(value === ALL_LEVELS_VALUE ? "" : value as PaperLevel | "")}
+            value={level || ""} 
+            onValueChange={(value) => setLevel(value === ALL_LEVELS_VALUE ? "" : value as EducationalLevel | "")} // Changed type cast
           >
             <SelectTrigger id="level-filter" className="mt-1">
               <SelectValue placeholder="Select Level" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value={ALL_LEVELS_VALUE}>All Levels</SelectItem>
-              {paperLevels.map((lvl) => (
+              {educationalLevels.map((lvl) => ( // Changed here
                 <SelectItem key={lvl} value={lvl}>{lvl}</SelectItem>
               ))}
             </SelectContent>
@@ -84,7 +84,7 @@ export function PaperFilters({ onFilterChange, availableSubjects, availableYears
         <div>
           <Label htmlFor="subject-filter" className="font-semibold">Subject</Label>
           <Select 
-            value={subject || ""} // Select value itself can be "" for placeholder
+            value={subject || ""} 
             onValueChange={(value) => setSubject(value === ALL_SUBJECTS_VALUE ? "" : value)}
           >
             <SelectTrigger id="subject-filter" className="mt-1">
@@ -101,7 +101,7 @@ export function PaperFilters({ onFilterChange, availableSubjects, availableYears
         <div>
           <Label htmlFor="year-filter" className="font-semibold">Year</Label>
           <Select 
-            value={year ? String(year) : ""} // Select value itself can be "" for placeholder
+            value={year ? String(year) : ""} 
             onValueChange={(value) => setYear(value === ALL_YEARS_VALUE ? "" : (value ? parseInt(value) : ""))}
           >
             <SelectTrigger id="year-filter" className="mt-1">

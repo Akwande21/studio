@@ -1,10 +1,11 @@
+
 "use client";
 
 import { useState, useTransition } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import type { Question as QuestionType, PaperLevel, StudySuggestion } from '@/lib/types';
+import type { Question as QuestionType, EducationalLevel, StudySuggestion } from '@/lib/types'; // Changed import
 import { handleSuggestRelatedTopics } from '@/lib/actions';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner';
 import { Lightbulb, AlertTriangle, CheckCircle, Search } from 'lucide-react';
@@ -12,7 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 
 interface AiStudyToolClientProps {
   question: QuestionType;
-  paperLevel: PaperLevel;
+  paperLevel: EducationalLevel; // Changed type
   paperSubject: string;
 }
 

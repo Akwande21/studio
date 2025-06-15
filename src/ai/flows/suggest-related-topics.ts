@@ -1,3 +1,4 @@
+
 'use server';
 
 /**
@@ -10,11 +11,12 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
+import { educationalLevels } from '@/lib/types'; // Import educationalLevels
 
 const SuggestRelatedTopicsInputSchema = z.object({
   question: z.string().describe('The question to find related topics for.'),
   level: z
-    .enum(['High School', 'College', 'University'])
+    .enum(educationalLevels) // Use educationalLevels for consistency
     .describe('The educational level of the question.'),
   subject: z.string().describe('The subject of the question.'),
 });
@@ -68,8 +70,6 @@ const suggestRelatedTopicsFlow = ai.defineFlow(
   async input => {
     const {output} = await suggestRelatedTopicsPrompt(input);
 
-    // Check if the materials are suitable using the checkSuitability tool.
-    // Only return the output if the checkSuitability tool returns true.
     if (output && output.suitabilityCheckPassed) {
       return output;
     } else {

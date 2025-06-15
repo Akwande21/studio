@@ -1,7 +1,8 @@
+
 "use client";
 
 import { useEffect, useState, useCallback } from 'react';
-import type { Paper, PaperLevel } from '@/lib/types';
+import type { Paper, EducationalLevel } from '@/lib/types'; // Changed PaperLevel to EducationalLevel
 import { PaperCard } from './PaperCard';
 import { PaperFilters } from './PaperFilters';
 import { getPapers, getUniqueSubjects, getUniqueYears } from '@/lib/data';
@@ -14,7 +15,7 @@ export function PaperList() {
   const [filteredPapers, setFilteredPapers] = useState<Paper[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [filters, setFilters] = useState<{ level?: PaperLevel; subject?: string; year?: number; query?: string }>({});
+  const [filters, setFilters] = useState<{ level?: EducationalLevel; subject?: string; year?: number; query?: string }>({}); // Changed PaperLevel
   
   const [availableSubjects, setAvailableSubjects] = useState<string[]>([]);
   const [availableYears, setAvailableYears] = useState<number[]>([]);
@@ -29,7 +30,7 @@ export function PaperList() {
           getUniqueYears()
         ]);
         setAllPapers(papersData);
-        setFilteredPapers(papersData); // Initially display all papers
+        setFilteredPapers(papersData); 
         setAvailableSubjects(subjectsData);
         setAvailableYears(yearsData);
       } catch (e) {

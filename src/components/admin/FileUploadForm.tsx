@@ -17,7 +17,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { paperLevels, type PaperLevel } from "@/lib/types";
+import { educationalLevels, type EducationalLevel } from "@/lib/types"; // Changed import
 import { useToast } from "@/hooks/use-toast";
 import { handlePaperUpload } from "@/lib/actions";
 import { useState, useTransition } from "react";
@@ -30,7 +30,7 @@ const ACCEPTED_FILE_TYPES = ["application/pdf"];
 const formSchema = z.object({
   title: z.string().min(5, "Title must be at least 5 characters.").max(100),
   description: z.string().min(10, "Description must be at least 10 characters.").max(500).optional(),
-  level: z.enum(paperLevels, { required_error: "Please select a level." }),
+  level: z.enum(educationalLevels, { required_error: "Please select a level." }), // Changed here
   subject: z.string().min(2, "Subject must be at least 2 characters.").max(50),
   year: z.coerce.number().min(2000, "Year must be 2000 or later.").max(new Date().getFullYear() + 1, `Year cannot be in the far future.`),
   file: z
@@ -133,7 +133,7 @@ export function FileUploadForm() {
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    {paperLevels.map(level => (
+                    {educationalLevels.map(level => ( // Changed here
                       <SelectItem key={level} value={level}>{level}</SelectItem>
                     ))}
                   </SelectContent>

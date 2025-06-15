@@ -1,6 +1,6 @@
 
 "use client";
-import type { User, PaperLevel, AuthContextType } from '@/lib/types';
+import type { User, UserRole, AuthContextType } from '@/lib/types'; // Changed PaperLevel to UserRole
 import { createUser, loginUser } from '@/lib/data';
 import React, { createContext, useState, useEffect, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
@@ -22,29 +22,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     } catch (error) {
       console.error("Failed to load user from localStorage", error);
-      // If parsing fails or localStorage is unavailable, ensure user is null
       setUser(null); 
     } finally {
       setLoading(false);
     }
   }, []);
 
-  const signIn = useCallback(async (credentials: { email: string; name?: string; role?: PaperLevel }) => {
+  const signIn = useCallback(async (credentials: { email: string; name?: string; role?: UserRole }) => { // Changed PaperLevel to UserRole
     setLoading(true);
     try {
-      // In a real app, name and role might not be passed for sign-in, only email/password.
-      // For mock, we'll use loginUser if it exists, or create a simple user if details are provided.
       let foundUser = await loginUser(credentials.email);
       if (!foundUser && credentials.name && credentials.role) {
-         // This path is more like a quick sign-up/sign-in combo for mock
          foundUser = { 
            id: Date.now().toString(), 
            email: credentials.email, 
            name: credentials.name, 
            role: credentials.role, 
-           avatarUrl: 'https://placehold.co/100x100?text=U', // U for User
-           dataAiHint: 'user avatar' as string // dataAiHint should be part of type if used directly
-          };
+           avatarUrl: 'https://placehold.co/100x100?text=U', 
+           dataAiHint: 'user avatar'
+          } as User; // Cast to User, ensure all fields are present if User type has more
       }
 
       if (foundUser) {
@@ -61,7 +57,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [toast]);
   
-  const signUp = useCallback(async (details: { name: string; email: string; role: PaperLevel }) => {
+  const signUp = useCallback(async (details: { name: string; email: string; role: UserRole }) => { // Changed PaperLevel to UserRole
     setLoading(true);
     try {
       const newUser = await createUser(details.name, details.email, details.role);

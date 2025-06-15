@@ -7,8 +7,8 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/hooks/useAuth';
-import type { PaperLevel } from '@/lib/types';
-import { paperLevels } from '@/lib/types';
+import type { UserRole } from '@/lib/types'; // Changed PaperLevel to UserRole
+import { userRoles } from '@/lib/types'; // Changed paperLevels to userRoles
 import Link from 'next/link';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner';
 import { UserPlus } from 'lucide-react';
@@ -16,14 +16,14 @@ import { UserPlus } from 'lucide-react';
 export function SignUpForm() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState(''); // Mock password
-  const [role, setRole] = useState<PaperLevel | ''>('');
+  const [password, setPassword] = useState(''); 
+  const [role, setRole] = useState<UserRole | ''>(''); // Changed PaperLevel to UserRole
   const { signUp, loading } = useAuth();
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!role) {
-        alert("Please select a role."); // Or use toast
+        alert("Please select a role."); 
         return;
     }
     await signUp({ name, email, role });
@@ -75,12 +75,12 @@ export function SignUpForm() {
           </div>
           <div className="space-y-2">
             <Label htmlFor="role">I am a...</Label>
-            <Select value={role} onValueChange={(value) => setRole(value as PaperLevel)} required>
+            <Select value={role} onValueChange={(value) => setRole(value as UserRole)} required> {/* Changed PaperLevel to UserRole */}
               <SelectTrigger id="role" className="focus-visible:ring-primary">
                 <SelectValue placeholder="Select your role" />
               </SelectTrigger>
               <SelectContent>
-                {paperLevels.map((lvl) => (
+                {userRoles.map((lvl) => ( // Changed paperLevels to userRoles
                   <SelectItem key={lvl} value={lvl}>
                     {lvl === 'Admin' ? 'Admin' : `${lvl} Student`}
                   </SelectItem>

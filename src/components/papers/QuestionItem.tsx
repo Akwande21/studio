@@ -1,7 +1,8 @@
+
 "use client";
 
 import { useState } from 'react';
-import type { Question, PaperLevel } from '@/lib/types';
+import type { Question, EducationalLevel } from '@/lib/types'; // Changed import
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { AiStudyToolClient } from './AiStudyToolClient';
@@ -10,7 +11,7 @@ import { ChevronDown, ChevronUp, HelpCircle } from 'lucide-react';
 interface QuestionItemProps {
   question: Question;
   index: number;
-  paperLevel: PaperLevel;
+  paperLevel: EducationalLevel; // Changed type
   paperSubject: string;
 }
 

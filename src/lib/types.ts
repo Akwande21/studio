@@ -5,21 +5,27 @@ export interface Question {
   answer?: string; 
 }
 
-export type PaperLevel = "High School" | "College" | "University" | "Admin";
-export const paperLevels: PaperLevel[] = ["High School", "College", "University", "Admin"];
+// For user roles
+export type UserRole = "High School" | "College" | "University" | "Admin";
+export const userRoles: UserRole[] = ["High School", "College", "University", "Admin"];
+
+// For paper educational levels
+export type EducationalLevel = "High School" | "College" | "University";
+export const educationalLevels: EducationalLevel[] = ["High School", "College", "University"];
+
 
 export interface Paper {
   id: string;
   title: string;
-  level: PaperLevel;
+  level: EducationalLevel; // Changed from PaperLevel
   subject: string;
   year: number;
   questions: Question[];
   averageRating: number;
   ratingsCount: number;
   isBookmarked?: boolean; 
-  downloadUrl?: string; // For PDF download or other formats
-  description?: string; // Brief description of the paper
+  downloadUrl?: string; 
+  description?: string; 
 }
 
 export interface Comment {
@@ -31,14 +37,14 @@ export interface Comment {
   text: string;
   timestamp: string; // ISO string
   parentId?: string; 
-  userRole?: PaperLevel; // To show user's role with comment
+  userRole?: UserRole; 
 }
 
 export interface User {
   id: string;
   name: string;
   email: string;
-  role: PaperLevel;
+  role: UserRole; // Changed from PaperLevel
   avatarUrl?: string;
 }
 
@@ -51,8 +57,8 @@ export interface Rating {
 
 export interface AuthContextType {
   user: User | null;
-  signIn: (credentials: { email: string; name?: string; role?: PaperLevel }) => Promise<void>; 
-  signUp: (details: { name: string; email: string; role: PaperLevel }) => Promise<void>;
+  signIn: (credentials: { email: string; name?: string; role?: UserRole }) => Promise<void>; 
+  signUp: (details: { name: string; email: string; role: UserRole }) => Promise<void>;
   signOut: () => void;
   loading: boolean;
   isAuthenticated: boolean;
@@ -62,3 +68,9 @@ export interface StudySuggestion {
   topics: string[];
   searchQueries: string[];
 }
+
+// Keep paperLevels for places that might still be using it before full refactor,
+// but ideally they should switch to educationalLevels or userRoles as appropriate.
+// For now, keeping it identical to UserRole for less breaking changes in unrelated parts.
+export type PaperLevel = "High School" | "College" | "University" | "Admin";
+export const paperLevels: PaperLevel[] = ["High School", "College", "University", "Admin"];

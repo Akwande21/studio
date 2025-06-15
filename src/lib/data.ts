@@ -1,5 +1,5 @@
 
-import type { Paper, Comment, User, PaperLevel, Rating, Question } from './types';
+import type { Paper, Comment, User, EducationalLevel, UserRole, Rating, Question } from './types'; // Updated imports
 
 const mockUsers: User[] = [
   { id: 'user1', name: 'Alice Wonderland', email: 'alice@example.com', role: 'Admin', avatarUrl: 'https://placehold.co/100x100?text=A' , dataAiHint: 'user avatar' },
@@ -26,11 +26,11 @@ const mockQuestions: Record<string, Question[]> = {
 };
 
 
-export const mockPapers: Paper[] = [
+export let mockPapers: Paper[] = [ // Made mockPapers let so it can be modified
   { 
     id: '1', 
     title: 'Mathematics Grade 10 Final Exam', 
-    level: 'High School', 
+    level: 'High School', // EducationalLevel
     subject: 'Mathematics', 
     year: 2023, 
     questions: mockQuestions.math101, 
@@ -43,7 +43,7 @@ export const mockPapers: Paper[] = [
   { 
     id: '2', 
     title: 'Introduction to Physics Midterm', 
-    level: 'College', 
+    level: 'College', // EducationalLevel
     subject: 'Physics', 
     year: 2022, 
     questions: mockQuestions.physics202, 
@@ -56,7 +56,7 @@ export const mockPapers: Paper[] = [
   { 
     id: '3', 
     title: 'World History Advanced Placement Test', 
-    level: 'University', 
+    level: 'University', // EducationalLevel
     subject: 'History', 
     year: 2023, 
     questions: mockQuestions.history303, 
@@ -69,7 +69,7 @@ export const mockPapers: Paper[] = [
   { 
     id: '4', 
     title: 'Computer Science 101 Final', 
-    level: 'College', 
+    level: 'College', // EducationalLevel
     subject: 'Computer Science', 
     year: 2023, 
     questions: mockQuestions.cs101, 
@@ -95,8 +95,8 @@ export const mockRatings: Rating[] = [
 
 
 // API-like functions
-export const getPapers = async (filters?: { level?: PaperLevel, subject?: string, year?: number, query?: string }): Promise<Paper[]> => {
-  await new Promise(resolve => setTimeout(resolve, 500)); // Simulate network delay
+export const getPapers = async (filters?: { level?: EducationalLevel, subject?: string, year?: number, query?: string }): Promise<Paper[]> => { // Changed filter type
+  await new Promise(resolve => setTimeout(resolve, 500)); 
   let papers = [...mockPapers];
   if (filters) {
     if (filters.level) papers = papers.filter(p => p.level === filters.level);
@@ -104,7 +104,6 @@ export const getPapers = async (filters?: { level?: PaperLevel, subject?: string
     if (filters.year) papers = papers.filter(p => p.year === filters.year);
     if (filters.query) papers = papers.filter(p => p.title.toLowerCase().includes(filters.query!.toLowerCase()) || p.description?.toLowerCase().includes(filters.query!.toLowerCase()));
   }
-  // For existing papers, randomly assign bookmark status
   return papers.map(p => ({...p, isBookmarked: p.isBookmarked === undefined ? Math.random() > 0.7 : p.isBookmarked}));
 };
 
@@ -144,8 +143,6 @@ export const toggleBookmark = async (paperId: string, userId: string): Promise<b
     await new Promise(resolve => setTimeout(resolve, 100));
     const paperIndex = mockPapers.findIndex(p => p.id === paperId);
     if (paperIndex !== -1) {
-        // In a real app, bookmarks would be user-specific.
-        // Here, we toggle a global-like flag on the mock paper.
         mockPapers[paperIndex].isBookmarked = !mockPapers[paperIndex].isBookmarked;
         return mockPapers[paperIndex].isBookmarked!;
     }
@@ -174,14 +171,11 @@ export const submitRating = async (paperId: string, userId: string, value: numbe
         paper.averageRating = paperRatings.reduce((sum, r) => sum + r.value, 0) / paperRatings.length;
         paper.ratingsCount = paperRatings.length;
     }
-    // Return the submitted or updated rating, ensure one is found or created.
     return mockRatings.find(r => r.paperId === paperId && r.userId === userId)!;
 }
 
 export const getBookmarkedPapers = async (userId: string): Promise<Paper[]> => {
     await new Promise(resolve => setTimeout(resolve, 300));
-    // In a real app, this would use user-specific bookmark data.
-    // Here, we filter by the `isBookmarked` flag which is not truly user-specific in this mock.
     return mockPapers.filter(p => p.isBookmarked);
 }
 
@@ -202,7 +196,7 @@ export const getUniqueYears = async (): Promise<number[]> => {
   return Array.from(years).sort((a,b) => b - a);
 }
 
-export const createUser = async (name: string, email: string, role: PaperLevel): Promise<User> => {
+export const createUser = async (name: string, email: string, role: UserRole): Promise<User> => { // Changed role type
   await new Promise(resolve => setTimeout(resolve, 500));
   const existingUser = mockUsers.find(u => u.email === email);
   if (existingUser) {
@@ -224,19 +218,18 @@ export const loginUser = async (email: string): Promise<User | null> => {
   return mockUsers.find(u => u.email === email) || null;
 }
 
-// New function to add an uploaded paper
 export const addUploadedPaper = async (
   paperData: Omit<Paper, 'id' | 'averageRating' | 'ratingsCount' | 'questions' | 'isBookmarked'> & { downloadUrl: string }
 ): Promise<Paper> => {
-  await new Promise(resolve => setTimeout(resolve, 200)); // Simulate network delay
+  await new Promise(resolve => setTimeout(resolve, 200)); 
   const newPaper: Paper = {
-    id: `paper${Date.now()}${Math.floor(Math.random() * 1000)}`, // More unique ID
+    id: `paper${Date.now()}${Math.floor(Math.random() * 1000)}`, 
     ...paperData,
-    questions: [], // Uploaded PDFs won't have structured questions initially
+    questions: [], 
     averageRating: 0,
     ratingsCount: 0,
     isBookmarked: false,
   };
-  mockPapers.unshift(newPaper); // Add to the beginning of the array for visibility
+  mockPapers.unshift(newPaper); 
   return newPaper;
 };

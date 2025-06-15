@@ -1,3 +1,4 @@
+
 'use server';
 /**
  * @fileOverview Provides an AI-powered explanation for a given concept.
@@ -9,11 +10,11 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
-import { paperLevels, type PaperLevel } from '@/lib/types';
+import { educationalLevels, type EducationalLevel } from '@/lib/types'; // Changed import
 
 const ExplainConceptInputSchema = z.object({
   concept: z.string().describe('The concept or term to be explained.'),
-  level: z.enum(paperLevels).describe('The educational level of the target audience.'),
+  level: z.enum(educationalLevels).describe('The educational level of the target audience.'), // Changed here
   subject: z.string().describe('The subject context for the explanation.'),
 });
 export type ExplainConceptInput = z.infer<typeof ExplainConceptInputSchema>;
