@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Logo } from '@/components/shared/Logo';
 import { useAuth } from '@/hooks/useAuth';
-import { UserCircle, LogIn, LogOut, Bookmark, HomeIcon, UploadCloud, Moon, Sun } from 'lucide-react';
+import { UserCircle, LogIn, LogOut, Bookmark, HomeIcon, UploadCloud, Moon, Sun, CalculatorIcon } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -30,15 +30,20 @@ export function Header() {
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 max-w-screen-2xl items-center justify-between">
         <Logo />
-        <nav className="flex items-center gap-2 md:gap-4">
+        <nav className="flex items-center gap-1 md:gap-2">
           <Button variant="ghost" asChild>
-            <Link href="/" className="flex items-center gap-1">
+            <Link href="/" className="flex items-center gap-1 text-sm md:text-base">
               <HomeIcon className="mr-1 h-4 w-4" /> Home
+            </Link>
+          </Button>
+           <Button variant="ghost" asChild>
+            <Link href="/calculator" className="flex items-center gap-1 text-sm md:text-base">
+              <CalculatorIcon className="mr-1 h-4 w-4" /> Calculator
             </Link>
           </Button>
           {isAuthenticated && (
             <Button variant="ghost" asChild>
-              <Link href="/bookmarks" className="flex items-center gap-1">
+              <Link href="/bookmarks" className="flex items-center gap-1 text-sm md:text-base">
                 <Bookmark className="mr-1 h-4 w-4" /> Bookmarks
               </Link>
             </Button>
@@ -50,12 +55,12 @@ export function Header() {
               size="icon"
               onClick={() => setTheme(theme === "light" ? "dark" : "light")}
               aria-label="Toggle theme"
-              className="h-8 w-8 md:h-10 md:w-10"
+              className="h-8 w-8 md:h-9 md:w-9"
             >
               {theme === "light" ? (
-                <Moon className="h-5 w-5" />
+                <Moon className="h-4 w-4 md:h-5 md:w-5" />
               ) : (
-                <Sun className="h-5 w-5" />
+                <Sun className="h-4 w-4 md:h-5 md:w-5" />
               )}
             </Button>
           )}
@@ -108,12 +113,12 @@ export function Header() {
             </DropdownMenu>
           ) : (
             <>
-              <Button variant="ghost" asChild>
+              <Button variant="ghost" asChild className="text-sm md:text-base">
                 <Link href="/auth/signin" className="flex items-center gap-1">
                   <LogIn className="mr-1 h-4 w-4" /> Sign In
                 </Link>
               </Button>
-              <Button asChild>
+              <Button asChild size="sm" className="text-sm md:text-base px-3 md:px-4">
                 <Link href="/auth/signup">Sign Up</Link>
               </Button>
             </>
