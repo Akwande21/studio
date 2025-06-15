@@ -1,6 +1,6 @@
 
 "use client";
-import type { User, UserRole, AuthContextType } from '@/lib/types'; // Changed PaperLevel to UserRole
+import type { User, UserRole, AuthContextType } from '@/lib/types';
 import { createUser, loginUser } from '@/lib/data';
 import React, { createContext, useState, useEffect, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
@@ -28,20 +28,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
-  const signIn = useCallback(async (credentials: { email: string; name?: string; role?: UserRole }) => { // Changed PaperLevel to UserRole
+  const signIn = useCallback(async (credentials: { email: string }) => { // Simplified credentials
     setLoading(true);
     try {
-      let foundUser = await loginUser(credentials.email);
-      if (!foundUser && credentials.name && credentials.role) {
-         foundUser = { 
-           id: Date.now().toString(), 
-           email: credentials.email, 
-           name: credentials.name, 
-           role: credentials.role, 
-           avatarUrl: 'https://placehold.co/100x100?text=U', 
-           dataAiHint: 'user avatar'
-          } as User; // Cast to User, ensure all fields are present if User type has more
-      }
+      // loginUser (from data.ts) is our mock API call to find a user
+      const foundUser = await loginUser(credentials.email);
 
       if (foundUser) {
         setUser(foundUser);
@@ -57,9 +48,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [toast]);
   
-  const signUp = useCallback(async (details: { name: string; email: string; role: UserRole }) => { // Changed PaperLevel to UserRole
+  const signUp = useCallback(async (details: { name: string; email: string; role: UserRole }) => {
     setLoading(true);
     try {
+      // createUser (from data.ts) is our mock API call to create and "save" a user
       const newUser = await createUser(details.name, details.email, details.role);
       setUser(newUser);
       localStorage.setItem(MOCK_USER_STORAGE_KEY, JSON.stringify(newUser));
@@ -83,3 +75,4 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     </AuthContext.Provider>
   );
 };
+

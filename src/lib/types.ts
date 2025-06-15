@@ -46,6 +46,7 @@ export interface User {
   email: string;
   role: UserRole; // Changed from PaperLevel
   avatarUrl?: string;
+  dataAiHint?: string; // Added for placeholder consistency
 }
 
 export interface Rating {
@@ -57,7 +58,7 @@ export interface Rating {
 
 export interface AuthContextType {
   user: User | null;
-  signIn: (credentials: { email: string; name?: string; role?: UserRole }) => Promise<void>; 
+  signIn: (credentials: { email: string }) => Promise<void>; // Simplified credentials for signIn
   signUp: (details: { name: string; email: string; role: UserRole }) => Promise<void>;
   signOut: () => void;
   loading: boolean;
@@ -74,3 +75,4 @@ export interface StudySuggestion {
 // For now, keeping it identical to UserRole for less breaking changes in unrelated parts.
 export type PaperLevel = "High School" | "College" | "University" | "Admin";
 export const paperLevels: PaperLevel[] = ["High School", "College", "University", "Admin"];
+
