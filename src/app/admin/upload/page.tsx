@@ -7,18 +7,22 @@ import { useEffect } from 'react';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { LogInIcon, UploadCloud } from 'lucide-react';
+import { LogInIcon, UploadCloud, ShieldAlert } from 'lucide-react';
 
 export default function AdminUploadPage() {
   const { isAuthenticated, loading: authLoading, user } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    // In a real app, you'd also check for an admin role here.
-    if (!authLoading && !isAuthenticated) {
-      router.push('/auth/signin');
+    if (!authLoading && (!isAuthenticated || user?.role !== 'Admin')) {
+      // Redirect to sign-in if not authenticated or not an Admin
+      // If authenticated but not Admin, they will see the Access Denied message below.
+      // If not authenticated, they will also see the sign-in required message.
+      if (!isAuthenticated) {
+        router.push('/auth/signin');
+      }
     }
-  }, [isAuthenticated, authLoading, router]);
+  }, [isAuthenticated, authLoading, user, router]);
 
   if (authLoading) {
     return (
@@ -41,17 +45,18 @@ export default function AdminUploadPage() {
     );
   }
 
-  // Add a conceptual check for admin role, though not strictly enforced here
-  // const isAdmin = user?.role === 'University'; // Example: Define what constitutes an admin
-  // if (!isAdmin) {
-  //   return (
-  //     <div className="container mx-auto py-12 px-4 text-center">
-  //       <h1 className="text-2xl font-semibold mb-4">Access Denied</h1>
-  //       <p className="text-muted-foreground mb-6">You do not have permission to access this page.</p>
-  //       <Button asChild><Link href="/">Go to Homepage</Link></Button>
-  //     </div>
-  //   );
-  // }
+  if (user?.role !== 'Admin') {
+    return (
+      <div className="container mx-auto py-12 px-4 text-center">
+        <ShieldAlert className="mx-auto h-12 w-12 text-destructive mb-4" />
+        <h1 className="text-2xl font-semibold mb-4 font-headline text-destructive">Access Denied</h1>
+        <p className="text-muted-foreground mb-6">You do not have permission to access this page. Admin role required.</p>
+        <Button asChild>
+          <Link href="/">Go to Homepage</Link>
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto py-8 px-4">

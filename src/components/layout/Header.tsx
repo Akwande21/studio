@@ -91,13 +91,14 @@ export function Header() {
                     Profile
                   </Link>
                 </DropdownMenuItem>
-                {/* Conceptual Admin Link - in a real app, check user.isAdmin or similar */}
-                <DropdownMenuItem asChild>
-                  <Link href="/admin/upload" className="cursor-pointer">
-                    <UploadCloud className="mr-2 h-4 w-4" />
-                    Upload Paper
-                  </Link>
-                </DropdownMenuItem>
+                {user.role === 'Admin' && (
+                  <DropdownMenuItem asChild>
+                    <Link href="/admin/upload" className="cursor-pointer">
+                      <UploadCloud className="mr-2 h-4 w-4" />
+                      Upload Paper
+                    </Link>
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={signOut} className="cursor-pointer">
                   <LogOut className="mr-2 h-4 w-4" />

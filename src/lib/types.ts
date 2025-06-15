@@ -5,8 +5,8 @@ export interface Question {
   answer?: string; 
 }
 
-export type PaperLevel = "High School" | "College" | "University";
-export const paperLevels: PaperLevel[] = ["High School", "College", "University"];
+export type PaperLevel = "High School" | "College" | "University" | "Admin";
+export const paperLevels: PaperLevel[] = ["High School", "College", "University", "Admin"];
 
 export interface Paper {
   id: string;
@@ -51,8 +51,8 @@ export interface Rating {
 
 export interface AuthContextType {
   user: User | null;
-  signIn: (credentials: { email: string; name: string; role: PaperLevel }) => void; // Simplified signIn
-  signUp: (details: { name: string; email: string; role: PaperLevel }) => void; // Simplified signUp
+  signIn: (credentials: { email: string; name?: string; role?: PaperLevel }) => Promise<void>; 
+  signUp: (details: { name: string; email: string; role: PaperLevel }) => Promise<void>;
   signOut: () => void;
   loading: boolean;
   isAuthenticated: boolean;

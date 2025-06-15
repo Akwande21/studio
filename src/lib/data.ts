@@ -2,9 +2,9 @@
 import type { Paper, Comment, User, PaperLevel, Rating, Question } from './types';
 
 const mockUsers: User[] = [
-  { id: 'user1', name: 'Alice Wonderland', email: 'alice@example.com', role: 'University', avatarUrl: 'https://placehold.co/100x100' },
-  { id: 'user2', name: 'Bob The Builder', email: 'bob@example.com', role: 'College', avatarUrl: 'https://placehold.co/100x100' },
-  { id: 'user3', name: 'Charlie Brown', email: 'charlie@example.com', role: 'High School', avatarUrl: 'https://placehold.co/100x100' },
+  { id: 'user1', name: 'Alice Wonderland', email: 'alice@example.com', role: 'Admin', avatarUrl: 'https://placehold.co/100x100?text=A' , dataAiHint: 'user avatar' },
+  { id: 'user2', name: 'Bob The Builder', email: 'bob@example.com', role: 'College', avatarUrl: 'https://placehold.co/100x100?text=B', dataAiHint: 'user avatar' },
+  { id: 'user3', name: 'Charlie Brown', email: 'charlie@example.com', role: 'High School', avatarUrl: 'https://placehold.co/100x100?text=C', dataAiHint: 'user avatar' },
 ];
 
 const mockQuestions: Record<string, Question[]> = {
@@ -84,7 +84,7 @@ export const mockPapers: Paper[] = [
 export const mockComments: Comment[] = [
   { id: 'c1', paperId: '1', userId: 'user2', userName: 'Bob The Builder', userAvatar: mockUsers[1].avatarUrl, text: 'Great paper for revision!', timestamp: new Date(Date.now() - 86400000).toISOString(), userRole: 'College' },
   { id: 'c2', paperId: '1', userId: 'user3', userName: 'Charlie Brown', userAvatar: mockUsers[2].avatarUrl, text: 'Question 2 was tricky.', timestamp: new Date(Date.now() - 3600000).toISOString(), userRole: 'High School' },
-  { id: 'c3', paperId: '2', userId: 'user1', userName: 'Alice Wonderland', userAvatar: mockUsers[0].avatarUrl, text: 'Helped me a lot for my physics exam.', timestamp: new Date(Date.now() - 172800000).toISOString(), userRole: 'University' },
+  { id: 'c3', paperId: '2', userId: 'user1', userName: 'Alice Wonderland', userAvatar: mockUsers[0].avatarUrl, text: 'Helped me a lot for my physics exam.', timestamp: new Date(Date.now() - 172800000).toISOString(), userRole: 'Admin' },
 ];
 
 export const mockRatings: Rating[] = [
@@ -213,7 +213,7 @@ export const createUser = async (name: string, email: string, role: PaperLevel):
     name,
     email,
     role,
-    avatarUrl: 'https://placehold.co/100x100', // Default avatar
+    avatarUrl: 'https://placehold.co/100x100?text=U', dataAiHint: 'user avatar' 
   };
   mockUsers.push(newUser);
   return newUser;
@@ -240,4 +240,3 @@ export const addUploadedPaper = async (
   mockPapers.unshift(newPaper); // Add to the beginning of the array for visibility
   return newPaper;
 };
-

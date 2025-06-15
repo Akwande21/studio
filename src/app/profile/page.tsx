@@ -1,3 +1,4 @@
+
 "use client";
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -51,7 +52,7 @@ export default function ProfilePage() {
             <div className="p-4 bg-secondary rounded-md space-y-2 text-sm">
               <p><span className="font-medium text-foreground">Name:</span> {user.name}</p>
               <p><span className="font-medium text-foreground">Email:</span> {user.email}</p>
-              <p><span className="font-medium text-foreground">Role:</span> <span className="capitalize bg-primary/10 text-primary px-2 py-0.5 rounded-full text-xs">{user.role} Student</span></p>
+              <p><span className="font-medium text-foreground">Role:</span> <span className="capitalize bg-primary/10 text-primary px-2 py-0.5 rounded-full text-xs">{user.role}</span></p>
             </div>
           </div>
           

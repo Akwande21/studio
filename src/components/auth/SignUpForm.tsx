@@ -1,3 +1,4 @@
+
 "use client";
 import { useState, FormEvent } from 'react';
 import { Button } from '@/components/ui/button';
@@ -32,7 +33,7 @@ export function SignUpForm() {
     <Card className="w-full max-w-md shadow-xl">
       <CardHeader className="text-center">
         <CardTitle className="text-2xl font-headline">Create an Account</CardTitle>
-        <CardDescription>Join PaperTrail to enhance your studies.</CardDescription>
+        <CardDescription>Join PaperVault to enhance your studies.</CardDescription>
       </CardHeader>
       <form onSubmit={handleSubmit}>
         <CardContent className="space-y-4">
@@ -80,7 +81,9 @@ export function SignUpForm() {
               </SelectTrigger>
               <SelectContent>
                 {paperLevels.map((lvl) => (
-                  <SelectItem key={lvl} value={lvl}>{lvl} Student</SelectItem>
+                  <SelectItem key={lvl} value={lvl}>
+                    {lvl === 'Admin' ? 'Admin' : `${lvl} Student`}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>

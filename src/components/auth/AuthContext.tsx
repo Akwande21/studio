@@ -1,3 +1,4 @@
+
 "use client";
 import type { User, PaperLevel, AuthContextType } from '@/lib/types';
 import { createUser, loginUser } from '@/lib/data';
@@ -36,7 +37,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       let foundUser = await loginUser(credentials.email);
       if (!foundUser && credentials.name && credentials.role) {
          // This path is more like a quick sign-up/sign-in combo for mock
-         foundUser = { id: Date.now().toString(), email: credentials.email, name: credentials.name, role: credentials.role, avatarUrl: 'https://placehold.co/100x100' };
+         foundUser = { 
+           id: Date.now().toString(), 
+           email: credentials.email, 
+           name: credentials.name, 
+           role: credentials.role, 
+           avatarUrl: 'https://placehold.co/100x100?text=U', // U for User
+           dataAiHint: 'user avatar' as string // dataAiHint should be part of type if used directly
+          };
       }
 
       if (foundUser) {

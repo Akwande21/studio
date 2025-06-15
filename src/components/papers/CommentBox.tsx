@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useTransition, FormEvent } from 'react';
@@ -80,7 +81,7 @@ export function CommentBox({ paperId, initialComments }: CommentBoxProps) {
             <div className="flex-1">
               <div className="flex items-center justify-between">
                 <p className="text-sm font-semibold text-foreground">{comment.userName} 
-                  {comment.userRole && <span className="ml-2 text-xs font-normal text-muted-foreground bg-secondary px-1.5 py-0.5 rounded-sm">{comment.userRole}</span>}
+                  {comment.userRole && <span className="ml-2 text-xs font-normal text-muted-foreground bg-secondary px-1.5 py-0.5 rounded-sm capitalize">{comment.userRole}</span>}
                 </p>
                 <p className="text-xs text-muted-foreground">
                   {formatDistanceToNow(new Date(comment.timestamp), { addSuffix: true })}
@@ -96,4 +97,3 @@ export function CommentBox({ paperId, initialComments }: CommentBoxProps) {
     </div>
   );
 }
-
