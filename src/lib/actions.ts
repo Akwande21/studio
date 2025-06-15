@@ -1,6 +1,7 @@
 
 "use server";
 import { suggestRelatedTopics as suggestRelatedTopicsFlow, type SuggestRelatedTopicsInput, type SuggestRelatedTopicsOutput } from '@/ai/flows/suggest-related-topics';
+import { explainConcept as explainConceptFlow, type ExplainConceptInput, type ExplainConceptOutput } from '@/ai/flows/explain-concept-flow'; // Added import
 import { addComment as addMockComment, toggleBookmark as toggleMockBookmark, submitRating as submitMockRating, getPaperById, addUploadedPaper as addMockUploadedPaper, loginUser } from './data';
 import type { Paper, EducationalLevel } from './types'; 
 import { educationalLevels } from './types'; 
@@ -28,6 +29,29 @@ export async function handleSuggestRelatedTopics(
     };
   }
 }
+
+export async function handleExplainQuestionConcept(
+  questionText: string,
+  level: EducationalLevel,
+  subject: string
+): Promise<ExplainConceptOutput> {
+  try {
+    const input: ExplainConceptInput = {
+      concept: questionText, // Use the question text as the concept to explain
+      level,
+      subject,
+    };
+    const result = await explainConceptFlow(input);
+    return result;
+  } catch (error) {
+    console.error("Error in handleExplainQuestionConcept:", error);
+    // Return a default error explanation or rethrow, depending on desired error handling
+    return {
+      explanation: "Sorry, I couldn't generate an explanation at this time. Please try again.",
+    };
+  }
+}
+
 
 export async function handleAddComment(paperId: string, userId: string, text: string) {
   try {

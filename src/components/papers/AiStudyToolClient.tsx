@@ -6,9 +6,9 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import type { Question as QuestionType, EducationalLevel, StudySuggestion } from '@/lib/types';
-import { handleSuggestRelatedTopics } from '@/lib/actions';
+import { handleSuggestRelatedTopics, handleExplainQuestionConcept } from '@/lib/actions'; // Added handleExplainQuestionConcept
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner';
-import { Lightbulb, AlertTriangle, CheckCircle, Search, Info } from 'lucide-react';
+import { Lightbulb, AlertTriangle, CheckCircle, Search, Info, Sparkles } from 'lucide-react'; // Added Sparkles
 import { useToast } from '@/hooks/use-toast';
 
 interface AiStudyToolClientProps {
@@ -23,14 +23,16 @@ interface ExtendedStudySuggestion extends StudySuggestion {
 
 export function AiStudyToolClient({ question, paperLevel, paperSubject }: AiStudyToolClientProps) {
   const [suggestions, setSuggestions] = useState<ExtendedStudySuggestion | null>(null);
+  const [explanation, setExplanation] = useState<string | null>(null); // New state for explanation
   const [error, setError] = useState<string | null>(null);
-  const [isPending, startTransition] = useTransition();
+  const [isSuggesting, startSuggestingTransition] = useTransition(); // Renamed for clarity
+  const [isExplaining, startExplainingTransition] = useTransition(); // New transition for explaining
   const { toast } = useToast();
 
   const fetchSuggestions = () => {
     setError(null);
     setSuggestions(null);
-    startTransition(async () => {
+    startSuggestingTransition(async () => {
       try {
         const result = await handleSuggestRelatedTopics(question.text, paperLevel, paperSubject);
         if (result.suitabilityCheckPassed && (result.topics.length > 0 || result.searchQueries.length > 0 || result.retrievedInformation)) {
@@ -50,7 +52,7 @@ export function AiStudyToolClient({ question, paperLevel, paperSubject }: AiStud
            setError("No specific suggestions found. Try rephrasing or check back later.");
         }
       } catch (e) {
-        console.error("AI Study Tool Error:", e);
+        console.error("AI Study Tool Error (Suggestions):", e);
         setError("An error occurred while fetching suggestions. Please try again.");
         toast({
           title: "Error",
@@ -61,6 +63,35 @@ export function AiStudyToolClient({ question, paperLevel, paperSubject }: AiStud
     });
   };
 
+  const fetchExplanation = () => {
+    setError(null); // Clear previous errors
+    setExplanation(null);
+    startExplainingTransition(async () => {
+      try {
+        const result = await handleExplainQuestionConcept(question.text, paperLevel, paperSubject);
+        if (result.explanation) {
+          setExplanation(result.explanation);
+        } else {
+          setError("The AI couldn't generate an explanation for this question at the moment.");
+           toast({
+            title: "Explanation Unavailable",
+            description: "Could not generate an explanation.",
+            variant: "default"
+          });
+        }
+      } catch (e) {
+        console.error("AI Study Tool Error (Explanation):", e);
+        setError("An error occurred while fetching the explanation. Please try again.");
+        toast({
+          title: "Error",
+          description: "Failed to fetch AI explanation.",
+          variant: "destructive"
+        });
+      }
+    });
+  };
+
+
   return (
     <Card className="mt-6 bg-gradient-to-br from-primary/5 via-background to-background shadow-lg border-primary/20">
       <CardHeader>
@@ -68,19 +99,34 @@ export function AiStudyToolClient({ question, paperLevel, paperSubject }: AiStud
           <Lightbulb className="mr-2 h-6 w-6 text-primary" />
           AI Study Helper
         </CardTitle>
-        <CardDescription>Get AI-powered suggestions to understand this question better. This may include information from external sources.</CardDescription>
+        <CardDescription>Get AI-powered suggestions and explanations to understand this question better. This may include information from external sources.</CardDescription>
       </CardHeader>
       <CardContent>
-        <Button onClick={fetchSuggestions} disabled={isPending} className="w-full sm:w-auto bg-primary hover:bg-primary/90">
-          {isPending ? (
-            <>
-              <LoadingSpinner size={20} className="mr-2" />
-              Generating Ideas...
-            </>
-          ) : (
-            "Suggest Related Topics & Info"
-          )}
-        </Button>
+        <div className="flex flex-wrap gap-3">
+          <Button onClick={fetchSuggestions} disabled={isSuggesting || isExplaining} className="bg-primary hover:bg-primary/90">
+            {isSuggesting ? (
+              <>
+                <LoadingSpinner size={20} className="mr-2" />
+                Generating Ideas...
+              </>
+            ) : (
+              "Suggest Related Topics & Info"
+            )}
+          </Button>
+          <Button onClick={fetchExplanation} disabled={isExplaining || isSuggesting} variant="outline" className="border-accent text-accent hover:bg-accent/10">
+            {isExplaining ? (
+              <>
+                <LoadingSpinner size={20} className="mr-2" />
+                Explaining...
+              </>
+            ) : (
+              <>
+                <Sparkles className="mr-2 h-4 w-4" />
+                Explain Core Concept
+              </>
+            )}
+          </Button>
+        </div>
 
         {error && (
           <Alert variant="destructive" className="mt-4">
@@ -88,6 +134,16 @@ export function AiStudyToolClient({ question, paperLevel, paperSubject }: AiStud
             <AlertTitle>Error</AlertTitle>
             <AlertDescription>{error}</AlertDescription>
           </Alert>
+        )}
+
+        {explanation && (
+          <div className="mt-6 p-4 bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-200 dark:border-indigo-700 rounded-md animate-in fade-in duration-500">
+            <h4 className="font-semibold text-indigo-800 dark:text-indigo-200 mb-2 flex items-center">
+              <Sparkles className="h-5 w-5 mr-2 text-indigo-600 dark:text-indigo-400" />
+              AI Explanation:
+            </h4>
+            <p className="text-sm text-indigo-700 dark:text-indigo-300 whitespace-pre-wrap">{explanation}</p>
+          </div>
         )}
 
         {suggestions && (
