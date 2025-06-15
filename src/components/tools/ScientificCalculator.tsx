@@ -140,53 +140,7 @@ export function ScientificCalculator() {
     }
   };
 
-  const handleScientificFunction = (func: string) => {
-    if (hasError) return;
-    const value = parseFloat(displayValue);
-    if (isNaN(value)) {
-       showError();
-       return;
-    }
-    let result: number | null = null;
-
-    try {
-        switch (func) {
-        case 'sin': result = Math.sin(value * Math.PI / 180); break; // Assuming degrees
-        case 'cos': result = Math.cos(value * Math.PI / 180); break; // Assuming degrees
-        case 'tan': result = Math.tan(value * Math.PI / 180); break; // Assuming degrees
-        case 'log': 
-            if (value <= 0) { showError(); return; }
-            result = Math.log10(value); 
-            break;
-        case 'sqrt': 
-            if (value < 0) { showError(); return; }
-            result = Math.sqrt(value); 
-            break;
-        case 'x²': result = Math.pow(value, 2); break;
-        default: break;
-        }
-
-        if (result !== null && !isNaN(result) && isFinite(result)) {
-            setDisplayValue(result.toString());
-        } else {
-            showError();
-            return;
-        }
-    } catch {
-        showError();
-        return;
-    }
-    setWaitingForOperand(true); // After a scientific function, next input starts a new number
-  };
-
   const buttons = [
-    { label: 'sin', type: 'function', action: () => handleScientificFunction('sin'), className: "bg-accent/50 hover:bg-accent/70 text-accent-foreground" },
-    { label: 'cos', type: 'function', action: () => handleScientificFunction('cos'), className: "bg-accent/50 hover:bg-accent/70 text-accent-foreground" },
-    { label: 'tan', type: 'function', action: () => handleScientificFunction('tan'), className: "bg-accent/50 hover:bg-accent/70 text-accent-foreground" },
-    { label: 'log₁₀', type: 'function', action: () => handleScientificFunction('log'), className: "bg-accent/50 hover:bg-accent/70 text-accent-foreground" },
-    
-    { label: '√', type: 'function', action: () => handleScientificFunction('sqrt'), className: "bg-accent/50 hover:bg-accent/70 text-accent-foreground" },
-    { label: 'x²', type: 'function', action: () => handleScientificFunction('x²'), className: "bg-accent/50 hover:bg-accent/70 text-accent-foreground" },
     { label: 'xʸ', type: 'operator', action: () => performOperation('xʸ'), className: "bg-accent/50 hover:bg-accent/70 text-accent-foreground" },
     { label: '←', type: 'action', action: backspace, className: "bg-muted hover:bg-muted/80" },
 
