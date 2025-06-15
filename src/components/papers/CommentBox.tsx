@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useTransition, FormEvent } from 'react';
-import type { Comment as CommentType, User } from '@/lib/types';
+import type { Comment as CommentType } from '@/lib/types';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -12,6 +12,8 @@ import { handleAddComment } from '@/lib/actions';
 import { formatDistanceToNow } from 'date-fns';
 import { Send, MessageCircle } from 'lucide-react';
 import { LoadingSpinner } from '../shared/LoadingSpinner';
+import { cn } from '@/lib/utils';
+import Link from 'next/link';
 
 interface CommentBoxProps {
   paperId: string;
@@ -25,16 +27,20 @@ export function CommentBox({ paperId, initialComments }: CommentBoxProps) {
   const [newComment, setNewComment] = useState('');
   const [isPending, startTransition] = useTransition();
 
-  const handleSubmitComment = async (e: FormEvent) => {
-    e.preventDefault();
+  const submitCommentLogic = async () => {
     if (!newComment.trim() || !isAuthenticated || !user) {
-      toast({ title: "Cannot submit", description: "Comment is empty or you are not signed in.", variant: "destructive" });
+      toast({
+        title: "Cannot submit",
+        description: "Comment is empty or you are not signed in.",
+        variant: "destructive",
+      });
       return;
     }
 
     startTransition(async () => {
       const result = await handleAddComment(paperId, user.id, newComment.trim());
       if (result.success && result.comment) {
+        // Add new comment to the top of the list (or bottom if you prefer and sort accordingly)
         setComments(prevComments => [result.comment!, ...prevComments]);
         setNewComment('');
         toast({ title: "Comment Added", description: "Your comment has been posted." });
@@ -44,56 +50,112 @@ export function CommentBox({ paperId, initialComments }: CommentBoxProps) {
     });
   };
 
+  const handleFormSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    await submitCommentLogic();
+  };
+
   return (
     <div className="space-y-6">
       <h3 className="text-xl font-semibold font-headline flex items-center">
         <MessageCircle className="mr-2 h-6 w-6 text-primary" />
         Discussion ({comments.length})
       </h3>
-      
-      {isAuthenticated && user ? (
-        <form onSubmit={handleSubmitComment} className="space-y-3">
-          <Textarea
-            placeholder="Write your comment..."
-            value={newComment}
-            onChange={(e) => setNewComment(e.target.value)}
-            rows={3}
-            className="focus-visible:ring-primary"
-          />
-          <Button type="submit" disabled={isPending || !newComment.trim()} className="w-full sm:w-auto">
-            {isPending ? <LoadingSpinner size={20} className="mr-2" /> : <Send className="mr-2 h-4 w-4" />}
-            Post Comment
-          </Button>
-        </form>
-      ) : (
-        <p className="text-sm text-muted-foreground">
-          <Button variant="link" className="p-0 h-auto" asChild><a href="/auth/signin">Sign in</a></Button> to join the discussion.
-        </p>
-      )}
 
-      <div className="space-y-4">
-        {comments.length > 0 ? comments.map((comment) => (
-          <div key={comment.id} className="flex space-x-3 p-4 bg-card rounded-lg shadow-sm">
-            <Avatar className="h-10 w-10 border">
-              <AvatarImage src={comment.userAvatar || `https://placehold.co/100x100/4DB6AC/FFFFFF?text=${comment.userName.charAt(0)}`} alt={comment.userName} data-ai-hint="user avatar" />
-              <AvatarFallback>{comment.userName.charAt(0)}</AvatarFallback>
-            </Avatar>
-            <div className="flex-1">
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-semibold text-foreground">{comment.userName} 
-                  {comment.userRole && <span className="ml-2 text-xs font-normal text-muted-foreground bg-secondary px-1.5 py-0.5 rounded-sm capitalize">{comment.userRole}</span>}
-                </p>
-                <p className="text-xs text-muted-foreground">
+      <div className="space-y-4 pr-2 max-h-[500px] overflow-y-auto">
+        {comments.length > 0 ? comments.map((comment) => {
+          const isCurrentUser = user && user.id === comment.userId;
+          return (
+            <div 
+              key={comment.id} 
+              className={cn(
+                "flex mb-3", 
+                isCurrentUser ? "justify-end" : "justify-start"
+              )}
+            >
+              <div
+                className={cn(
+                  "max-w-[70%] p-3 rounded-xl shadow-md",
+                  isCurrentUser
+                    ? "bg-primary text-primary-foreground rounded-br-none"
+                    : "bg-card text-card-foreground rounded-bl-none border"
+                )}
+              >
+                {!isCurrentUser && (
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <Avatar className="h-6 w-6 border">
+                      <AvatarImage 
+                        src={comment.userAvatar || `https://placehold.co/60x60/4DB6AC/FFFFFF?text=${comment.userName.charAt(0)}`} 
+                        alt={comment.userName} 
+                        data-ai-hint="user avatar" 
+                      />
+                      <AvatarFallback className="text-xs">{comment.userName.charAt(0)}</AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <p className="text-xs font-semibold">{comment.userName}</p>
+                      {comment.userRole && <p className="text-[10px] opacity-80 capitalize">{comment.userRole}</p>}
+                    </div>
+                  </div>
+                )}
+                 {isCurrentUser && (
+                  <p className="text-xs font-semibold mb-1 text-primary-foreground/80">You</p>
+                )}
+                <p className="text-sm whitespace-pre-wrap break-words">{comment.text}</p>
+                <p className={cn(
+                  "text-xs mt-1.5 opacity-70", 
+                  isCurrentUser ? "text-right text-primary-foreground/70" : "text-left"
+                )}>
                   {formatDistanceToNow(new Date(comment.timestamp), { addSuffix: true })}
                 </p>
               </div>
-              <p className="mt-1 text-sm text-foreground whitespace-pre-wrap">{comment.text}</p>
             </div>
-          </div>
-        )) : (
+          );
+        }) : (
           <p className="text-sm text-muted-foreground text-center py-4">No comments yet. Be the first to share your thoughts!</p>
         )}
       </div>
+      
+      <form onSubmit={handleFormSubmit} className="flex items-start gap-2 mt-6 border-t pt-6">
+        {user && (
+            <Avatar className="h-9 w-9 border mt-0.5 flex-shrink-0">
+                <AvatarImage src={user.avatarUrl || `https://placehold.co/60x60/64B5F6/FFFFFF?text=${user.name.charAt(0)}`} alt={user.name} data-ai-hint="user avatar" />
+                <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
+            </Avatar>
+        )}
+        {!user && (
+             <Avatar className="h-9 w-9 border mt-0.5 flex-shrink-0">
+                <AvatarFallback>U</AvatarFallback>
+            </Avatar>
+        )}
+        <Textarea
+            placeholder={isAuthenticated ? "Write your message..." : "Sign in to post a message."}
+            value={newComment}
+            onChange={(e) => setNewComment(e.target.value)}
+            rows={1}
+            className="flex-1 resize-none focus-visible:ring-primary min-h-[40px]"
+            onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey && isAuthenticated) {
+                    e.preventDefault();
+                    submitCommentLogic();
+                }
+            }}
+            disabled={!isAuthenticated || isPending}
+        />
+        <Button 
+            type="submit" 
+            size="icon" 
+            className="h-10 w-10 flex-shrink-0" 
+            disabled={!isAuthenticated || isPending || !newComment.trim()}
+            aria-label="Send message"
+        >
+            {isPending ? <LoadingSpinner size={20} /> : <Send className="h-5 w-5" />}
+        </Button>
+      </form>
+      {!isAuthenticated && (
+        <p className="text-sm text-muted-foreground text-center -mt-2">
+            <Button variant="link" className="p-0 h-auto" asChild><Link href="/auth/signin">Sign in</Link></Button> to join the discussion.
+        </p>
+      )}
     </div>
   );
 }
