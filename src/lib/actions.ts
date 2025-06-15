@@ -147,3 +147,25 @@ export async function handleForgotPasswordRequest(email: string): Promise<{ succ
     };
   }
 }
+
+export async function handleResetPassword(newPassword: string): Promise<{ success: boolean; message: string }> {
+  // Input validation (basic)
+  if (!newPassword || newPassword.length < 6) {
+    return { success: false, message: "Password must be at least 6 characters long." };
+  }
+
+  // In a real application, you would:
+  // 1. Validate the reset token (passed as an argument, typically from URL).
+  // 2. Find the user associated with the token.
+  // 3. Hash the newPassword.
+  // 4. Update the user's password in the database.
+  // 5. Invalidate the reset token.
+
+  // For this mock, we'll just simulate success.
+  console.log(`Mock password reset: New password would be "${newPassword}"`);
+  
+  // Simulate a short delay
+  await new Promise(resolve => setTimeout(resolve, 500));
+
+  return { success: true, message: "Your password has been successfully reset. You can now sign in with your new password." };
+}
