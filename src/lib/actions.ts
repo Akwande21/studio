@@ -1,14 +1,14 @@
 
 "use server";
 import { suggestRelatedTopics as suggestRelatedTopicsFlow, type SuggestRelatedTopicsInput, type SuggestRelatedTopicsOutput } from '@/ai/flows/suggest-related-topics';
-import { addComment as addMockComment, toggleBookmark as toggleMockBookmark, submitRating as submitMockRating, getPaperById, addUploadedPaper as addMockUploadedPaper } from './data';
-import type { Paper, EducationalLevel } from './types'; // Changed import
-import { educationalLevels } from './types'; // Added import
+import { addComment as addMockComment, toggleBookmark as toggleMockBookmark, submitRating as submitMockRating, getPaperById, addUploadedPaper as addMockUploadedPaper, loginUser } from './data';
+import type { Paper, EducationalLevel } from './types'; 
+import { educationalLevels } from './types'; 
 import { z } from 'zod';
 
 export async function handleSuggestRelatedTopics(
   questionText: string,
-  level: EducationalLevel, // Changed type
+  level: EducationalLevel, 
   subject: string
 ): Promise<SuggestRelatedTopicsOutput> {
   try {
@@ -60,11 +60,11 @@ export async function handleSubmitRating(paperId: string, userId: string, value:
 const paperUploadSchema = z.object({
   title: z.string(),
   description: z.string().optional(),
-  level: z.enum(educationalLevels), // Changed here
+  level: z.enum(educationalLevels), 
   subject: z.string(),
   year: z.coerce.number(),
-  file: z.custom<FileList>((val) => val instanceof FileList && val.length > 0, "File is required") // Check if FileList, then check specific file
-    .transform(fileList => fileList[0]) // Get the first file
+  file: z.custom<FileList>((val) => val instanceof FileList && val.length > 0, "File is required") 
+    .transform(fileList => fileList[0]) 
     .refine(file => file instanceof File, "Valid file is required"),
 });
 
@@ -77,13 +77,8 @@ export async function handlePaperUpload(formData: FormData) {
       level: formData.get('level'),
       subject: formData.get('subject'),
       year: formData.get('year'),
-      // Pass the File object directly for Zod validation
       file: formData.get('file') instanceof File ? formData.get('file') : undefined,
     };
-    
-    // For Zod to correctly parse FormData with a file, we need to handle it carefully.
-    // The schema expects `file` to be a single `File` instance, not a `FileList`.
-    // We'll adjust the schema slightly to expect a FileList and then refine it.
     
     const fileListSchema = z.object({
       file: z.custom<FileList>((val) => val instanceof FileList && val.length > 0, "Please select a PDF file.")
@@ -95,7 +90,7 @@ export async function handlePaperUpload(formData: FormData) {
       level: formData.get('level'),
       subject: formData.get('subject'),
       year: formData.get('year'),
-      file: formData.get('file'), // Pass the raw File object
+      file: formData.get('file'), 
     });
 
 
@@ -112,7 +107,7 @@ export async function handlePaperUpload(formData: FormData) {
     const newPaperData: Omit<Paper, 'id' | 'averageRating' | 'ratingsCount' | 'questions' | 'isBookmarked'> & { downloadUrl: string } = {
       title,
       description,
-      level, // type is now EducationalLevel
+      level, 
       subject,
       year,
       downloadUrl: mockDownloadUrl,
@@ -123,10 +118,32 @@ export async function handlePaperUpload(formData: FormData) {
 
   } catch (error) {
     console.error("Error in handlePaperUpload:", error);
-    // If ZodError, extract messages
     if (error instanceof z.ZodError) {
         return { success: false, message: "Validation failed.", errors: error.flatten().fieldErrors };
     }
     return { success: false, message: "An unexpected error occurred during paper upload." };
+  }
+}
+
+export async function handleForgotPasswordRequest(email: string): Promise<{ success: boolean; message: string }> {
+  if (!email || !z.string().email().safeParse(email).success) {
+    return { success: false, message: "Please enter a valid email address." };
+  }
+  try {
+    // We use loginUser to check if the user exists, but we don't log them in.
+    const userExists = await loginUser(email); 
+    // Regardless of whether the user exists, we return a generic message
+    // to prevent email enumeration attacks.
+    return { 
+      success: true, 
+      message: "If an account with that email exists, instructions to reset your password have been sent. Please check your inbox (and spam folder)." 
+    };
+  } catch (error) {
+    console.error("Error in handleForgotPasswordRequest:", error);
+    // Still return a generic message in case of an unexpected error during lookup.
+    return { 
+      success: true, // From the user's perspective, the action was "processed".
+      message: "If an account with that email exists, instructions to reset your password have been sent. Please check your inbox (and spam folder)." 
+    };
   }
 }

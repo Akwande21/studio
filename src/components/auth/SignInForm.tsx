@@ -1,3 +1,4 @@
+
 "use client";
 import { useState, FormEvent } from 'react';
 import { Button } from '@/components/ui/button';
@@ -16,8 +17,6 @@ export function SignInForm() {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    // For mock purposes, we only need email. We might add name/role if we want to auto-create if not found.
-    // For simplicity, signIn will just use email.
     await signIn({ email }); 
   };
 
@@ -42,7 +41,12 @@ export function SignInForm() {
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="password">Password</Label>
+              <Button variant="link" asChild className="p-0 h-auto text-xs text-muted-foreground">
+                <Link href="/auth/forgot-password">Forgot password?</Link>
+              </Button>
+            </div>
             <Input
               id="password"
               type="password"
