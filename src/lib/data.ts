@@ -82,8 +82,6 @@ export let mockPapers: Paper[] = [ // Made mockPapers let so it can be modified
 ];
 
 export const mockComments: Comment[] = [
-  { id: 'c1', paperId: '1', userId: 'user2', userName: 'Bob The Builder', userAvatar: mockUsers[1].avatarUrl, text: 'Great paper for revision!', timestamp: new Date(Date.now() - 86400000).toISOString(), userRole: 'College' },
-  { id: 'c2', paperId: '1', userId: 'user3', userName: 'Charlie Brown', userAvatar: mockUsers[2].avatarUrl, text: 'Question 2 was tricky.', timestamp: new Date(Date.now() - 3600000).toISOString(), userRole: 'High School' },
   { id: 'c3', paperId: '2', userId: 'user1', userName: 'Alice Wonderland', userAvatar: mockUsers[0].avatarUrl, text: 'Helped me a lot for my physics exam.', timestamp: new Date(Date.now() - 172800000).toISOString(), userRole: 'Admin' },
 ];
 
@@ -126,7 +124,7 @@ export const addComment = async (paperId: string, userId: string, text: string):
   const user = mockUsers.find(u => u.id === userId);
   if (!user) throw new Error("User not found");
   const newComment: Comment = {
-    id: `c${mockComments.length + 1}`,
+    id: `c${mockComments.length + 1}${Date.now()}`, // Ensure unique ID
     paperId,
     userId,
     userName: user.name,
@@ -176,6 +174,8 @@ export const submitRating = async (paperId: string, userId: string, value: numbe
 
 export const getBookmarkedPapers = async (userId: string): Promise<Paper[]> => {
     await new Promise(resolve => setTimeout(resolve, 300));
+    // In a real scenario, you'd fetch based on user-specific bookmarks.
+    // For now, returning papers marked as 'isBookmarked' in the global mockPapers.
     return mockPapers.filter(p => p.isBookmarked);
 }
 
@@ -207,7 +207,7 @@ export const createUser = async (name: string, email: string, role: UserRole): P
     name,
     email,
     role,
-    avatarUrl: 'https://placehold.co/100x100?text=U', dataAiHint: 'user avatar' 
+    avatarUrl: `https://placehold.co/100x100?text=${name.charAt(0)}`, dataAiHint: 'user avatar' 
   };
   mockUsers.push(newUser);
   return newUser;
@@ -233,3 +233,6 @@ export const addUploadedPaper = async (
   mockPapers.unshift(newPaper); 
   return newPaper;
 };
+
+
+    
