@@ -1,7 +1,16 @@
 
 import type { Paper, Comment, User, EducationalLevel, UserRole, Rating, Question } from './types'; // Updated imports
 
-export let mockUsers: User[] = []; // Initialize as empty
+export let mockUsers: User[] = [
+  {
+    id: 'admin001',
+    name: 'Admin User', // You can change this name if you like
+    email: 'ndlovunkosy21@gmail.com',
+    role: 'Admin',
+    avatarUrl: `https://placehold.co/100x100/D32F2F/FFFFFF?text=A`, // Distinct admin avatar
+    dataAiHint: 'admin avatar'
+  }
+];
 
 const mockQuestions: Record<string, Question[]> = {
   math101: [
@@ -23,53 +32,53 @@ const mockQuestions: Record<string, Question[]> = {
 
 
 export let mockPapers: Paper[] = [ // Made mockPapers let so it can be modified
-  { 
-    id: '1', 
-    title: 'Mathematics Grade 10 Final Exam', 
+  {
+    id: '1',
+    title: 'Mathematics Grade 10 Final Exam',
     level: 'High School', // EducationalLevel
-    subject: 'Mathematics', 
-    year: 2023, 
-    questions: mockQuestions.math101, 
-    averageRating: 4.5, 
+    subject: 'Mathematics',
+    year: 2023,
+    questions: mockQuestions.math101,
+    averageRating: 4.5,
     ratingsCount: 120,
     isBookmarked: false,
     downloadUrl: '/papers/math_grade10_2023.pdf',
     description: 'Comprehensive final exam for 10th grade mathematics covering algebra, geometry, and trigonometry.'
   },
-  { 
-    id: '2', 
-    title: 'Introduction to Physics Midterm', 
+  {
+    id: '2',
+    title: 'Introduction to Physics Midterm',
     level: 'College', // EducationalLevel
-    subject: 'Physics', 
-    year: 2022, 
-    questions: mockQuestions.physics202, 
-    averageRating: 4.2, 
+    subject: 'Physics',
+    year: 2022,
+    questions: mockQuestions.physics202,
+    averageRating: 4.2,
     ratingsCount: 85,
     isBookmarked: true,
     downloadUrl: '/papers/physics_intro_midterm_2022.pdf',
     description: 'Midterm exam for introductory college physics, focusing on mechanics and thermodynamics.'
   },
-  { 
-    id: '3', 
-    title: 'World History Advanced Placement Test', 
+  {
+    id: '3',
+    title: 'World History Advanced Placement Test',
     level: 'University', // EducationalLevel
-    subject: 'History', 
-    year: 2023, 
-    questions: mockQuestions.history303, 
-    averageRating: 4.8, 
+    subject: 'History',
+    year: 2023,
+    questions: mockQuestions.history303,
+    averageRating: 4.8,
     ratingsCount: 200,
     isBookmarked: false,
     downloadUrl: '/papers/history_ap_2023.pdf',
     description: 'Advanced placement test for university-level world history, covering major global events and civilizations.'
   },
-  { 
-    id: '4', 
-    title: 'Computer Science 101 Final', 
+  {
+    id: '4',
+    title: 'Computer Science 101 Final',
     level: 'College', // EducationalLevel
-    subject: 'Computer Science', 
-    year: 2023, 
-    questions: mockQuestions.cs101, 
-    averageRating: 4.6, 
+    subject: 'Computer Science',
+    year: 2023,
+    questions: mockQuestions.cs101,
+    averageRating: 4.6,
     ratingsCount: 150,
     isBookmarked: false,
     downloadUrl: '/papers/cs101_final_2023.pdf',
@@ -77,14 +86,14 @@ export let mockPapers: Paper[] = [ // Made mockPapers let so it can be modified
   },
 ];
 
-export const mockComments: Comment[] = []; // Initialize as empty
+export const mockComments: Comment[] = [];
 
-export const mockRatings: Rating[] = []; // Initialize as empty
+export const mockRatings: Rating[] = [];
 
 
 // API-like functions
 export const getPapers = async (filters?: { level?: EducationalLevel, subject?: string, year?: number, query?: string }): Promise<Paper[]> => { // Changed filter type
-  await new Promise(resolve => setTimeout(resolve, 500)); 
+  await new Promise(resolve => setTimeout(resolve, 500));
   let papers = [...mockPapers];
   if (filters) {
     if (filters.level) papers = papers.filter(p => p.level === filters.level);
@@ -160,7 +169,7 @@ export const submitRating = async (paperId: string, userId: string, value: numbe
       };
       mockRatings.push(newRating);
     }
-    
+
     const paper = mockPapers.find(p => p.id === paperId);
     if (paper) {
         const paperRatings = mockRatings.filter(r => r.paperId === paperId);
@@ -212,7 +221,7 @@ export const createUser = async (name: string, email: string, role: UserRole): P
     name,
     email,
     role,
-    avatarUrl: `https://placehold.co/100x100/64B5F6/FFFFFF?text=${name.charAt(0)}`, dataAiHint: 'user avatar' 
+    avatarUrl: `https://placehold.co/100x100/64B5F6/FFFFFF?text=${name.charAt(0)}`, dataAiHint: 'user avatar'
   };
   mockUsers.push(newUser);
   return newUser;
@@ -226,19 +235,15 @@ export const loginUser = async (email: string): Promise<User | null> => {
 export const addUploadedPaper = async (
   paperData: Omit<Paper, 'id' | 'averageRating' | 'ratingsCount' | 'questions' | 'isBookmarked'> & { downloadUrl: string }
 ): Promise<Paper> => {
-  await new Promise(resolve => setTimeout(resolve, 200)); 
+  await new Promise(resolve => setTimeout(resolve, 200));
   const newPaper: Paper = {
-    id: `paper${Date.now()}${Math.floor(Math.random() * 1000)}`, 
+    id: `paper${Date.now()}${Math.floor(Math.random() * 1000)}`,
     ...paperData,
-    questions: [], 
+    questions: [],
     averageRating: 0,
     ratingsCount: 0,
     isBookmarked: false, // Explicitly false for new uploads
   };
-  mockPapers.unshift(newPaper); 
+  mockPapers.unshift(newPaper);
   return newPaper;
 };
-
-
-    
-

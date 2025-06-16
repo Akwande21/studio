@@ -7,8 +7,8 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/hooks/useAuth';
-import type { UserRole } from '@/lib/types'; // Changed PaperLevel to UserRole
-import { userRoles } from '@/lib/types'; // Changed paperLevels to userRoles
+import type { UserRole } from '@/lib/types';
+import { userRoles } from '@/lib/types';
 import Link from 'next/link';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner';
 import { UserPlus } from 'lucide-react';
@@ -16,18 +16,22 @@ import { UserPlus } from 'lucide-react';
 export function SignUpForm() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState(''); 
-  const [role, setRole] = useState<UserRole | ''>(''); // Changed PaperLevel to UserRole
+  const [password, setPassword] = useState('');
+  const [role, setRole] = useState<UserRole | ''>('');
   const { signUp, loading } = useAuth();
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!role) {
-        alert("Please select a role."); 
+        alert("Please select a role.");
         return;
     }
+    // The password here is for the form field but not strictly used by the mock signUp
     await signUp({ name, email, role });
   };
+
+  // Filter out 'Admin' role for selection
+  const selectableRoles = userRoles.filter(r => r !== 'Admin');
 
   return (
     <Card className="w-full max-w-md shadow-xl">
@@ -75,13 +79,14 @@ export function SignUpForm() {
           </div>
           <div className="space-y-2">
             <Label htmlFor="role">I am a...</Label>
-            <Select value={role} onValueChange={(value) => setRole(value as UserRole)} required> {/* Changed PaperLevel to UserRole */}
+            <Select value={role} onValueChange={(value) => setRole(value as UserRole)} required>
               <SelectTrigger id="role" className="focus-visible:ring-primary">
                 <SelectValue placeholder="Select your role" />
               </SelectTrigger>
               <SelectContent>
-                {userRoles.map((lvl) => ( // Changed paperLevels to userRoles
+                {selectableRoles.map((lvl) => (
                   <SelectItem key={lvl} value={lvl}>
+                    {/* 'Admin' role is filtered out, so this ternary is effectively for student roles */}
                     {lvl === 'Admin' ? 'Admin' : `${lvl} Student`}
                   </SelectItem>
                 ))}
