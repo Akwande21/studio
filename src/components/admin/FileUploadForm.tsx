@@ -83,16 +83,20 @@ export function FileUploadForm() {
           });
           form.reset();
         } else {
+          if (result.errors) {
+            console.error("Server validation errors (payload):", result.errors);
+          }
           toast({
             title: "Upload Failed",
-            description: result.message || (result.errors ? JSON.stringify(result.errors) : "An unknown error occurred."),
+            description: result.message || (result.errors ? `Details: ${JSON.stringify(result.errors)}` : "An unknown error occurred."),
             variant: "destructive",
           });
         }
       } catch (error) {
+        console.error("Unexpected error during paper upload:", error);
         toast({
           title: "Upload Error",
-          description: "An unexpected error occurred during upload.",
+          description: "An unexpected error occurred during upload. Check console for details.",
           variant: "destructive",
         });
       }
@@ -206,4 +210,3 @@ export function FileUploadForm() {
     </Form>
   );
 }
-
