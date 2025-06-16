@@ -1,13 +1,17 @@
 
-import type { Paper, Comment, User, EducationalLevel, UserRole, Rating, Question } from './types'; // Updated imports
+import type { Paper, Comment, User, EducationalLevel, UserRole, Rating, Question } from './types';
+
+// Admin email constant
+const ADMIN_EMAIL = "ndlovunkosy21@gmail.com";
+const ADMIN_PASSWORD = "Nkosy@08";
 
 export let mockUsers: User[] = [
   {
     id: 'admin001',
-    name: 'Admin User', // You can change this name if you like
-    email: 'ndlovunkosy21@gmail.com',
+    name: 'Admin User',
+    email: ADMIN_EMAIL,
     role: 'Admin',
-    avatarUrl: `https://placehold.co/100x100/D32F2F/FFFFFF?text=A`, // Distinct admin avatar
+    avatarUrl: `https://placehold.co/100x100/D32F2F/FFFFFF?text=A`,
     dataAiHint: 'admin avatar'
   }
 ];
@@ -31,11 +35,11 @@ const mockQuestions: Record<string, Question[]> = {
 };
 
 
-export let mockPapers: Paper[] = [ // Made mockPapers let so it can be modified
+export let mockPapers: Paper[] = [
   {
     id: '1',
     title: 'Mathematics Grade 10 Final Exam',
-    level: 'High School', // EducationalLevel
+    level: 'High School',
     subject: 'Mathematics',
     year: 2023,
     questions: mockQuestions.math101,
@@ -48,7 +52,7 @@ export let mockPapers: Paper[] = [ // Made mockPapers let so it can be modified
   {
     id: '2',
     title: 'Introduction to Physics Midterm',
-    level: 'College', // EducationalLevel
+    level: 'College',
     subject: 'Physics',
     year: 2022,
     questions: mockQuestions.physics202,
@@ -61,7 +65,7 @@ export let mockPapers: Paper[] = [ // Made mockPapers let so it can be modified
   {
     id: '3',
     title: 'World History Advanced Placement Test',
-    level: 'University', // EducationalLevel
+    level: 'University',
     subject: 'History',
     year: 2023,
     questions: mockQuestions.history303,
@@ -74,7 +78,7 @@ export let mockPapers: Paper[] = [ // Made mockPapers let so it can be modified
   {
     id: '4',
     title: 'Computer Science 101 Final',
-    level: 'College', // EducationalLevel
+    level: 'College',
     subject: 'Computer Science',
     year: 2023,
     questions: mockQuestions.cs101,
@@ -86,13 +90,13 @@ export let mockPapers: Paper[] = [ // Made mockPapers let so it can be modified
   },
 ];
 
-export const mockComments: Comment[] = [];
+export let mockComments: Comment[] = [];
 
-export const mockRatings: Rating[] = [];
+export let mockRatings: Rating[] = [];
 
 
 // API-like functions
-export const getPapers = async (filters?: { level?: EducationalLevel, subject?: string, year?: number, query?: string }): Promise<Paper[]> => { // Changed filter type
+export const getPapers = async (filters?: { level?: EducationalLevel, subject?: string, year?: number, query?: string }): Promise<Paper[]> => {
   await new Promise(resolve => setTimeout(resolve, 500));
   let papers = [...mockPapers];
   if (filters) {
@@ -101,9 +105,6 @@ export const getPapers = async (filters?: { level?: EducationalLevel, subject?: 
     if (filters.year) papers = papers.filter(p => p.year === filters.year);
     if (filters.query) papers = papers.filter(p => p.title.toLowerCase().includes(filters.query!.toLowerCase()) || p.description?.toLowerCase().includes(filters.query!.toLowerCase()));
   }
-  // For existing papers, randomly assign bookmark status if not explicitly set.
-  // This simulates a state where some papers might have been bookmarked by someone in a "previous session" for demo.
-  // However, new papers added via upload won't have `isBookmarked` defined by default.
   return papers.map(p => ({...p, isBookmarked: p.isBookmarked === undefined ? Math.random() > 0.7 : p.isBookmarked}));
 };
 
@@ -111,7 +112,6 @@ export const getPaperById = async (id: string): Promise<Paper | undefined> => {
   await new Promise(resolve => setTimeout(resolve, 300));
   const paper = mockPapers.find(p => p.id === id);
   if (paper) {
-    // Similar to getPapers, assign a random bookmark status if not defined.
     return {...paper, isBookmarked: paper.isBookmarked === undefined ? Math.random() > 0.5 : paper.isBookmarked};
   }
   return undefined;
@@ -125,9 +125,9 @@ export const getCommentsByPaperId = async (paperId: string): Promise<Comment[]> 
 export const addComment = async (paperId: string, userId: string, text: string): Promise<Comment> => {
   await new Promise(resolve => setTimeout(resolve, 300));
   const user = mockUsers.find(u => u.id === userId);
-  if (!user) throw new Error("User not found for adding comment"); // More specific error
+  if (!user) throw new Error("User not found for adding comment");
   const newComment: Comment = {
-    id: `c${mockComments.length + 1}${Date.now()}`, // Ensure unique ID
+    id: `c${mockComments.length + 1}${Date.now()}`,
     paperId,
     userId,
     userName: user.name,
@@ -144,9 +144,8 @@ export const toggleBookmark = async (paperId: string, userId: string): Promise<b
     await new Promise(resolve => setTimeout(resolve, 100));
     const paperIndex = mockPapers.findIndex(p => p.id === paperId);
     if (paperIndex !== -1) {
-        // Ensure isBookmarked has a default value before toggling
         if (mockPapers[paperIndex].isBookmarked === undefined) {
-            mockPapers[paperIndex].isBookmarked = false; // Default to not bookmarked if undefined
+            mockPapers[paperIndex].isBookmarked = false;
         }
         mockPapers[paperIndex].isBookmarked = !mockPapers[paperIndex].isBookmarked;
         return mockPapers[paperIndex].isBookmarked!;
@@ -176,19 +175,17 @@ export const submitRating = async (paperId: string, userId: string, value: numbe
         if (paperRatings.length > 0) {
           paper.averageRating = paperRatings.reduce((sum, r) => sum + r.value, 0) / paperRatings.length;
         } else {
-          paper.averageRating = 0; // Reset if all ratings are somehow removed (edge case)
+          paper.averageRating = 0;
         }
         paper.ratingsCount = paperRatings.length;
     }
     const currentRating = mockRatings.find(r => r.paperId === paperId && r.userId === userId);
-    if (!currentRating) throw new Error("Rating could not be processed or found after submission."); // Should not happen
+    if (!currentRating) throw new Error("Rating could not be processed or found after submission.");
     return currentRating;
 }
 
 export const getBookmarkedPapers = async (userId: string): Promise<Paper[]> => {
     await new Promise(resolve => setTimeout(resolve, 300));
-    // In a real scenario, you'd fetch based on user-specific bookmarks.
-    // For now, returning papers marked as 'isBookmarked' in the global mockPapers.
     return mockPapers.filter(p => p.isBookmarked);
 }
 
@@ -209,7 +206,7 @@ export const getUniqueYears = async (): Promise<number[]> => {
   return Array.from(years).sort((a,b) => b - a);
 }
 
-export const createUser = async (name: string, email: string, role: UserRole): Promise<User> => { // Changed role type
+export const createUser = async (name: string, email: string, role: UserRole): Promise<User> => {
   await new Promise(resolve => setTimeout(resolve, 500));
   const existingUserByEmail = mockUsers.find(u => u.email === email);
   if (existingUserByEmail) {
@@ -227,9 +224,22 @@ export const createUser = async (name: string, email: string, role: UserRole): P
   return newUser;
 }
 
-export const loginUser = async (email: string): Promise<User | null> => {
+export const loginUser = async (email: string, password?: string): Promise<User | null> => {
   await new Promise(resolve => setTimeout(resolve, 300));
-  return mockUsers.find(u => u.email === email) || null;
+  const user = mockUsers.find(u => u.email === email);
+
+  if (user) {
+    if (user.email === ADMIN_EMAIL) {
+      // Specific password check for admin
+      if (password === ADMIN_PASSWORD) {
+        return user;
+      }
+      return null; // Admin password incorrect
+    }
+    // For other users, password check is skipped in this mock
+    return user;
+  }
+  return null; // User not found
 }
 
 export const addUploadedPaper = async (
@@ -242,7 +252,7 @@ export const addUploadedPaper = async (
     questions: [],
     averageRating: 0,
     ratingsCount: 0,
-    isBookmarked: false, // Explicitly false for new uploads
+    isBookmarked: false,
   };
   mockPapers.unshift(newPaper);
   return newPaper;

@@ -58,7 +58,7 @@ export interface Rating {
 
 export interface AuthContextType {
   user: User | null;
-  signIn: (credentials: { email: string }) => Promise<void>;
+  signIn: (credentials: { email: string; password?: string }) => Promise<void>; // Added password
   signUp: (details: { name: string; email: string; role: UserRole }) => Promise<void>;
   signOut: () => void;
   loading: boolean;
@@ -69,3 +69,4 @@ export interface StudySuggestion {
   topics: string[];
   searchQueries: string[];
 }
+

@@ -12,12 +12,13 @@ import { LogIn } from 'lucide-react';
 
 export function SignInForm() {
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState(''); // Mock password, not actually used by mock auth
+  const [password, setPassword] = useState('');
   const { signIn, loading } = useAuth();
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    await signIn({ email }); 
+    // Pass both email and password
+    await signIn({ email, password }); 
   };
 
   return (

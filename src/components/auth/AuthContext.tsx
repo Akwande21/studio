@@ -1,7 +1,7 @@
 
 "use client";
 import type { User, UserRole, AuthContextType } from '@/lib/types';
-import { createUser, loginUser, mockUsers } from '@/lib/data'; // Added mockUsers import
+import { createUser, loginUser, mockUsers } from '@/lib/data';
 import React, { createContext, useState, useEffect, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
 
@@ -20,20 +20,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (storedUserString) {
         const loadedUserFromStorage: User = JSON.parse(storedUserString);
         
-        // Ensure user from localStorage exists in the current mockUsers array.
-        // This handles cases where mockUsers is reset (e.g., dev server restart)
-        // but the user session persists in localStorage.
         const userInMockData = mockUsers.find(u => u.id === loadedUserFromStorage.id);
         if (!userInMockData) {
-          // If user is not in mockUsers, add them back.
-          // This makes the mock system behave more like a persistent DB for dev purposes.
-          // Check if user with same email already exists to avoid duplicates if ID generation was different
           const existingUserByEmail = mockUsers.find(u => u.email === loadedUserFromStorage.email);
           if (!existingUserByEmail) {
             mockUsers.push(loadedUserFromStorage);
           } else {
-            // If user with same email but different ID exists, update the stored user to use existing ID to avoid conflicts.
-            // This is an edge case for mock environments.
             localStorage.setItem(MOCK_USER_STORAGE_KEY, JSON.stringify(existingUserByEmail));
             setUser(existingUserByEmail);
             setLoading(false);
@@ -44,7 +36,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     } catch (error) {
       console.error("Failed to load user from localStorage or sync with mock data", error);
-      // If there's an error (e.g., malformed JSON), clear the problematic item
       localStorage.removeItem(MOCK_USER_STORAGE_KEY);
       setUser(null); 
     } finally {
@@ -52,17 +43,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
-  const signIn = useCallback(async (credentials: { email: string }) => { 
+  const signIn = useCallback(async (credentials: { email: string; password?: string }) => { 
     setLoading(true);
     try {
-      const foundUser = await loginUser(credentials.email);
+      // Pass both email and password to loginUser
+      const foundUser = await loginUser(credentials.email, credentials.password);
 
       if (foundUser) {
         setUser(foundUser);
         localStorage.setItem(MOCK_USER_STORAGE_KEY, JSON.stringify(foundUser));
         toast({ title: "Signed In", description: `Welcome back, ${foundUser.name}!` });
       } else {
-        toast({ title: "Sign In Failed", description: "User not found. Please check your email or sign up.", variant: "destructive" });
+        // Check if it was an admin login attempt that failed due to password
+        if (credentials.email === "ndlovunkosy21@gmail.com") {
+             toast({ title: "Sign In Failed", description: "Invalid admin credentials.", variant: "destructive" });
+        } else {
+            toast({ title: "Sign In Failed", description: "User not found or invalid credentials.", variant: "destructive" });
+        }
       }
     } catch (error) {
       toast({ title: "Sign In Error", description: (error as Error).message, variant: "destructive" });
