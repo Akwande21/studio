@@ -26,7 +26,7 @@ export async function handleSuggestRelatedTopics(
       topics: [],
       searchQueries: [],
       suitabilityCheckPassed: false,
-      retrievedInformation: undefined, // Ensure all fields are present
+      retrievedInformation: undefined, 
     };
   }
 }
@@ -38,7 +38,7 @@ export async function handleExplainQuestionConcept(
 ): Promise<ExplainConceptOutput> {
   try {
     const input: ExplainConceptInput = {
-      concept: questionText, // Use the question text as the concept to explain
+      concept: questionText, 
       level,
       subject,
     };
@@ -46,7 +46,7 @@ export async function handleExplainQuestionConcept(
     return result;
   } catch (error) {
     console.error("Error in handleExplainQuestionConcept:", error);
-    // Return a default error explanation or rethrow, depending on desired error handling
+    
     return {
       explanation: "Sorry, I couldn't generate an explanation at this time. Please try again.",
     };
@@ -105,7 +105,7 @@ export async function handlePaperUpload(formData: FormData) {
   try {
     const validatedData = paperUploadActionSchema.safeParse({
       title: formData.get('title'),
-      description: formData.get('description') || undefined, // Ensure undefined if null or empty
+      description: formData.get('description') || undefined, 
       level: formData.get('level'),
       subject: formData.get('subject'),
       year: formData.get('year'),
@@ -180,7 +180,7 @@ export async function handleResetPassword(newPassword: string): Promise<{ succes
 const updateUserSchema = z.object({
   userId: z.string().min(1, "User ID is required."),
   name: z.string().min(2, "Full name must be at least 2 characters.").max(50, "Full name must be 50 characters or less."),
-  role: z.enum(nonAdminRoles).optional(), // Role is optional, and if provided, must be a non-admin role
+  role: z.enum(nonAdminRoles).optional(), 
 });
 
 export async function handleUpdateUserDetails(formData: FormData) {
@@ -188,7 +188,7 @@ export async function handleUpdateUserDetails(formData: FormData) {
     const rawData = {
       userId: formData.get('userId'),
       name: formData.get('name'),
-      role: formData.get('role') || undefined, // Ensure undefined if not present
+      role: formData.get('role') || undefined, 
     };
 
     const validationResult = updateUserSchema.safeParse(rawData);
@@ -207,12 +207,12 @@ export async function handleUpdateUserDetails(formData: FormData) {
 
     const updates: { name?: string; role?: UserRole } = { name };
     
-    // Only include role in updates if it's actually being changed for a non-admin user
+    
     if (userToEdit.role !== 'Admin' && role && userToEdit.role !== role) {
       updates.role = role;
     } else if (userToEdit.role === 'Admin' && role && role !== 'Admin') {
-      // This case should ideally be prevented by the form UI (disabling role changes for admins)
-      // but as a safeguard in the action:
+      
+      
       return { success: false, message: "Admin role cannot be changed." };
     }
 
@@ -230,5 +230,51 @@ export async function handleUpdateUserDetails(formData: FormData) {
         return { success: false, message: "Validation failed.", errors: error.flatten().fieldErrors };
     }
     return { success: false, message: "An unexpected error occurred while updating user details." };
+  }
+}
+
+const sendSuggestionSchema = z.object({
+  name: z.string().optional(),
+  email: z.string().email({ message: "Please enter a valid email address." }).optional().or(z.literal('')),
+  subject: z.string().min(5, "Subject must be at least 5 characters long.").max(100, "Subject must be 100 characters or less."),
+  message: z.string().min(10, "Message must be at least 10 characters long.").max(1000, "Message must be 1000 characters or less."),
+});
+
+export async function handleSendSuggestionToAdmin(formData: FormData) {
+  try {
+    const rawData = {
+      name: formData.get('name') || undefined,
+      email: formData.get('email') || undefined,
+      subject: formData.get('subject'),
+      message: formData.get('message'),
+    };
+
+    const validationResult = sendSuggestionSchema.safeParse(rawData);
+
+    if (!validationResult.success) {
+      const fieldErrors = validationResult.error.flatten().fieldErrors;
+      const errorMessages = Object.entries(fieldErrors)
+        .map(([key, value]) => `${key}: ${value?.join(', ')}`)
+        .join('; ');
+      return { success: false, message: `Invalid data: ${errorMessages}`, errors: fieldErrors };
+    }
+
+    const { name, email, subject, message } = validationResult.data;
+
+    console.log("--- New Suggestion for Admin ---");
+    console.log("Name:", name || "Anonymous");
+    console.log("Email:", email || "Not provided");
+    console.log("Subject:", subject);
+    console.log("Message:", message);
+    console.log("---------------------------------");
+
+    
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    return { success: true, message: "Thank you for your suggestion! It has been notionally sent to the admin." };
+
+  } catch (error) {
+    console.error("Error in handleSendSuggestionToAdmin:", error);
+    return { success: false, message: "An unexpected error occurred while sending your suggestion." };
   }
 }
