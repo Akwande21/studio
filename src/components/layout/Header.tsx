@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Logo } from '@/components/shared/Logo';
 import { useAuth } from '@/hooks/useAuth';
-import { UserCircle, LogIn, LogOut, Bookmark, HomeIcon, UploadCloud, Moon, Sun, CalculatorIcon } from 'lucide-react';
+import { UserCircle, LogIn, LogOut, Bookmark, HomeIcon, UploadCloud, Moon, Sun, CalculatorIcon, UsersIcon } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -97,12 +97,20 @@ export function Header() {
                   </Link>
                 </DropdownMenuItem>
                 {user.role === 'Admin' && (
-                  <DropdownMenuItem asChild>
-                    <Link href="/admin/upload" className="cursor-pointer">
-                      <UploadCloud className="mr-2 h-4 w-4" />
-                      Upload Paper
-                    </Link>
-                  </DropdownMenuItem>
+                  <>
+                    <DropdownMenuItem asChild>
+                      <Link href="/admin/upload" className="cursor-pointer">
+                        <UploadCloud className="mr-2 h-4 w-4" />
+                        Upload Paper
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href="/admin/users" className="cursor-pointer">
+                        <UsersIcon className="mr-2 h-4 w-4" />
+                        Manage Users
+                      </Link>
+                    </DropdownMenuItem>
+                  </>
                 )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={signOut} className="cursor-pointer">
