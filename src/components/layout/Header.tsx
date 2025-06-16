@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Logo } from '@/components/shared/Logo';
 import { useAuth } from '@/hooks/useAuth';
-import { UserCircle, LogIn, LogOut, Bookmark, HomeIcon, UploadCloud, Moon, Sun, CalculatorIcon, UsersIcon } from 'lucide-react';
+import { UserCircle, LogIn, LogOut, Bookmark, HomeIcon, UploadCloud, Moon, Sun, CalculatorIcon, UsersIcon, MessageSquareQuote } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -26,6 +26,8 @@ export function Header() {
     setMounted(true);
   }, []);
 
+  const isAdmin = isAuthenticated && user?.role === 'Admin';
+
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 max-w-screen-2xl items-center justify-between">
@@ -36,12 +38,16 @@ export function Header() {
               <HomeIcon className="mr-1 h-4 w-4" /> Home
             </Link>
           </Button>
-           <Button variant="ghost" asChild>
-            <Link href="/calculator" className="flex items-center gap-1 text-sm md:text-base">
-              <CalculatorIcon className="mr-1 h-4 w-4" /> Calculator
-            </Link>
-          </Button>
-          {isAuthenticated && (
+          
+          {!isAdmin && ( // Hide Calculator for Admin
+            <Button variant="ghost" asChild>
+              <Link href="/calculator" className="flex items-center gap-1 text-sm md:text-base">
+                <CalculatorIcon className="mr-1 h-4 w-4" /> Calculator
+              </Link>
+            </Button>
+          )}
+
+          {isAuthenticated && !isAdmin && ( // Hide Bookmarks for Admin, show for other authenticated users
             <Button variant="ghost" asChild>
               <Link href="/bookmarks" className="flex items-center gap-1 text-sm md:text-base">
                 <Bookmark className="mr-1 h-4 w-4" /> Bookmarks
@@ -96,7 +102,7 @@ export function Header() {
                     Profile
                   </Link>
                 </DropdownMenuItem>
-                {user.role === 'Admin' && (
+                {isAdmin && (
                   <>
                     <DropdownMenuItem asChild>
                       <Link href="/admin/upload" className="cursor-pointer">
@@ -108,6 +114,12 @@ export function Header() {
                       <Link href="/admin/users" className="cursor-pointer">
                         <UsersIcon className="mr-2 h-4 w-4" />
                         Manage Users
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href="/admin/suggestions" className="cursor-pointer">
+                        <MessageSquareQuote className="mr-2 h-4 w-4" />
+                        View Suggestions
                       </Link>
                     </DropdownMenuItem>
                   </>

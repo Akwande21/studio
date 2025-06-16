@@ -1,5 +1,5 @@
 
-import type { Paper, Comment, User, EducationalLevel, UserRole, Rating, Question } from './types';
+import type { Paper, Comment, User, EducationalLevel, UserRole, Rating, Question, Suggestion } from './types';
 import { nonAdminRoles } from './types';
 
 // Admin email constant
@@ -94,6 +94,8 @@ export let mockPapers: Paper[] = [
 export let mockComments: Comment[] = [];
 
 export let mockRatings: Rating[] = [];
+
+export let mockSuggestions: Suggestion[] = [];
 
 
 // API-like functions
@@ -293,3 +295,7 @@ export const updateUserDetails = async (
   return userToUpdate;
 };
 
+export const getMockSuggestions = async (): Promise<Suggestion[]> => {
+  await new Promise(resolve => setTimeout(resolve, 100)); // Simulate async fetch
+  return [...mockSuggestions].sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+};

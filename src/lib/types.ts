@@ -72,3 +72,12 @@ export interface StudySuggestion {
   searchQueries: string[];
 }
 
+export interface Suggestion {
+  id: string;
+  name?: string;
+  email?: string;
+  subject: string;
+  message: string;
+  timestamp: string; // ISO string
+  isRead?: boolean;
+}

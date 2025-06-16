@@ -2,8 +2,8 @@
 "use server";
 import { suggestRelatedTopics as suggestRelatedTopicsFlow, type SuggestRelatedTopicsInput, type SuggestRelatedTopicsOutput } from '@/ai/flows/suggest-related-topics';
 import { explainConcept as explainConceptFlow, type ExplainConceptInput, type ExplainConceptOutput } from '@/ai/flows/explain-concept-flow'; // Added import
-import { addComment as addMockComment, toggleBookmark as toggleMockBookmark, submitRating as submitMockRating, getPaperById, addUploadedPaper as addMockUploadedPaper, loginUser, updateUserDetails as updateMockUserDetails, getUserById as getMockUserById } from './data';
-import type { Paper, EducationalLevel, UserRole } from './types';
+import { addComment as addMockComment, toggleBookmark as toggleMockBookmark, submitRating as submitMockRating, getPaperById, addUploadedPaper as addMockUploadedPaper, loginUser, updateUserDetails as updateMockUserDetails, getUserById as getMockUserById, mockSuggestions } from './data';
+import type { Paper, EducationalLevel, UserRole, Suggestion } from './types';
 import { educationalLevels, nonAdminRoles } from './types';
 import { z } from 'zod';
 
@@ -261,17 +261,19 @@ export async function handleSendSuggestionToAdmin(formData: FormData) {
 
     const { name, email, subject, message } = validationResult.data;
 
-    console.log("--- New Suggestion for Admin ---");
-    console.log("Name:", name || "Anonymous");
-    console.log("Email:", email || "Not provided");
-    console.log("Subject:", subject);
-    console.log("Message:", message);
-    console.log("---------------------------------");
+    const newSuggestion: Suggestion = {
+      id: `sug-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      name: name || undefined,
+      email: email || undefined,
+      subject,
+      message,
+      timestamp: new Date().toISOString(),
+      isRead: false, // Default to unread
+    };
 
-    
-    await new Promise(resolve => setTimeout(resolve, 500));
+    mockSuggestions.unshift(newSuggestion); // Add to the beginning of the array so newest are first
 
-    return { success: true, message: "Thank you for your suggestion! It has been notionally sent to the admin." };
+    return { success: true, message: "Thank you for your suggestion! It has been received." };
 
   } catch (error) {
     console.error("Error in handleSendSuggestionToAdmin:", error);
