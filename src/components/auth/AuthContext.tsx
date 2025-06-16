@@ -32,22 +32,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } else {
           // This case might happen if Firestore profile creation failed or for an admin user
           // who needs their profile bootstrapped.
-          // For simplicity, if an admin logs in and has no Firestore profile, we can try to create one.
-          // This is a basic way to handle it; more robust solutions exist.
-          if (firebaseUser.email === "ndlovunkosy21@gmail.com") {
+          if (firebaseUser.email === "ndlovunkosy21@gmail.com") { // Ensure this matches your admin email
             try {
               console.log("Admin user logged in, attempting to ensure Firestore profile exists.");
-              await addUserProfileToFirestore(firebaseUser.uid, "Admin User", firebaseUser.email!, "Admin");
-              const newProfile = await getUserProfileFromFirestore(firebaseUser.uid);
-              setUser(newProfile);
+              // Check if profile exists before attempting to create, to prevent errors if it was created elsewhere
+              const existingAdminProfile = await getUserProfileFromFirestore(firebaseUser.uid);
+              if (!existingAdminProfile) {
+                await addUserProfileToFirestore(firebaseUser.uid, "Admin User", firebaseUser.email!, "Admin");
+                const newProfile = await getUserProfileFromFirestore(firebaseUser.uid);
+                setUser(newProfile);
+              } else {
+                setUser(existingAdminProfile);
+              }
             } catch (e) {
-               console.error("Failed to create Firestore profile for admin:", e);
+               console.error("Failed to create or fetch Firestore profile for admin:", e);
                setUser(null); // Or handle error appropriately
             }
           } else {
             console.warn(`User ${firebaseUser.uid} authenticated with Firebase, but no profile found in Firestore.`);
-            // Potentially sign them out or prompt for profile creation.
-            // For now, treat as not fully logged in to our app context.
             setUser(null); 
           }
         }
@@ -70,12 +72,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       await signInWithEmailAndPassword(auth, credentials.email, credentials.password);
       // onAuthStateChanged will handle setting the user state
-      // toast({ title: "Signed In", description: `Welcome back!` }); // Toast can be shown here or after user state is set
     } catch (error: any) {
-      console.error("Firebase Sign In Error:", error);
-      toast({ title: "Sign In Failed", description: error.message || "Invalid credentials.", variant: "destructive" });
+      console.error("Firebase Sign In Error:", error.code, error.message);
+      let errorMessage = "An unknown error occurred. Please try again.";
+      if (error.code === 'auth/invalid-credential' || 
+          error.code === 'auth/user-not-found' || 
+          error.code === 'auth/wrong-password' ||
+          error.code === 'auth/invalid-email') { // Added auth/invalid-email
+        errorMessage = "Invalid email or password. Please check your credentials and try again.";
+      } else if (error.code === 'auth/user-disabled') {
+        errorMessage = "This account has been disabled. Please contact support.";
+      } else if (error.message) {
+        // Fallback to Firebase's error message if it's not one of the common ones
+        errorMessage = error.message;
+      }
+      toast({ title: "Sign In Failed", description: errorMessage, variant: "destructive" });
     } finally {
-      // setLoading(false); // onAuthStateChanged handles final loading state
+      // setLoading(false); // onAuthStateChanged handles final loading state, or set it after onAuthStateChanged resolves
     }
   }, [toast]);
   
@@ -88,13 +101,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, details.email, details.password);
       const firebaseUser = userCredential.user;
-      // Store additional user details (name, role) in Firestore
       await addUserProfileToFirestore(firebaseUser.uid, details.name, details.email, details.role);
       // onAuthStateChanged will handle setting the user state
-      // toast({ title: "Sign Up Successful", description: `Welcome, ${details.name}!` });
     } catch (error: any) {
       console.error("Firebase Sign Up Error:", error);
-      toast({ title: "Sign Up Error", description: error.message || "Could not create account.", variant: "destructive" });
+      let errorMessage = "Could not create account. Please try again.";
+      if (error.code === 'auth/email-already-in-use') {
+        errorMessage = "This email address is already in use by another account.";
+      } else if (error.code === 'auth/weak-password') {
+        errorMessage = "The password is too weak. Please choose a stronger password.";
+      } else if (error.code === 'auth/invalid-email') {
+        errorMessage = "The email address is not valid.";
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      toast({ title: "Sign Up Error", description: errorMessage, variant: "destructive" });
     } finally {
       // setLoading(false); // onAuthStateChanged handles final loading state
     }
@@ -119,7 +140,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         await firebaseSendPasswordResetEmail(auth, email);
         toast({ title: "Password Reset Email Sent", description: "Check your email for instructions to reset your password." });
     } catch (error: any) {
-        toast({ title: "Password Reset Error", description: error.message, variant: "destructive"});
+        let errorMessage = "Failed to send password reset email. Please try again.";
+        if (error.code === 'auth/user-not-found') {
+            errorMessage = "No user found with this email address.";
+        } else if (error.code === 'auth/invalid-email') {
+            errorMessage = "The email address is not valid.";
+        } else if (error.message) {
+            errorMessage = error.message;
+        }
+        toast({ title: "Password Reset Error", description: errorMessage, variant: "destructive"});
     } finally {
         setLoading(false);
     }
