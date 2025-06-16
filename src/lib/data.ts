@@ -1,11 +1,7 @@
 
 import type { Paper, Comment, User, EducationalLevel, UserRole, Rating, Question } from './types'; // Updated imports
 
-export let mockUsers: User[] = [ // Changed to export let
-  { id: 'user1', name: 'Alice Wonderland', email: 'alice@example.com', role: 'Admin', avatarUrl: 'https://placehold.co/100x100?text=A' , dataAiHint: 'user avatar' },
-  { id: 'user2', name: 'Bob The Builder', email: 'bob@example.com', role: 'College', avatarUrl: 'https://placehold.co/100x100?text=B', dataAiHint: 'user avatar' },
-  { id: 'user3', name: 'Charlie Brown', email: 'charlie@example.com', role: 'High School', avatarUrl: 'https://placehold.co/100x100?text=C', dataAiHint: 'user avatar' },
-];
+export let mockUsers: User[] = []; // Initialize as empty
 
 const mockQuestions: Record<string, Question[]> = {
   math101: [
@@ -81,15 +77,9 @@ export let mockPapers: Paper[] = [ // Made mockPapers let so it can be modified
   },
 ];
 
-export const mockComments: Comment[] = [
-  { id: 'c3', paperId: '2', userId: 'user1', userName: 'Alice Wonderland', userAvatar: mockUsers[0].avatarUrl, text: 'Helped me a lot for my physics exam.', timestamp: new Date(Date.now() - 172800000).toISOString(), userRole: 'Admin' },
-];
+export const mockComments: Comment[] = []; // Initialize as empty
 
-export const mockRatings: Rating[] = [
-    { paperId: '1', userId: 'user1', value: 5, timestamp: new Date().toISOString() },
-    { paperId: '1', userId: 'user2', value: 4, timestamp: new Date().toISOString() },
-    { paperId: '2', userId: 'user3', value: 4, timestamp: new Date().toISOString() },
-];
+export const mockRatings: Rating[] = []; // Initialize as empty
 
 
 // API-like functions
@@ -102,6 +92,9 @@ export const getPapers = async (filters?: { level?: EducationalLevel, subject?: 
     if (filters.year) papers = papers.filter(p => p.year === filters.year);
     if (filters.query) papers = papers.filter(p => p.title.toLowerCase().includes(filters.query!.toLowerCase()) || p.description?.toLowerCase().includes(filters.query!.toLowerCase()));
   }
+  // For existing papers, randomly assign bookmark status if not explicitly set.
+  // This simulates a state where some papers might have been bookmarked by someone in a "previous session" for demo.
+  // However, new papers added via upload won't have `isBookmarked` defined by default.
   return papers.map(p => ({...p, isBookmarked: p.isBookmarked === undefined ? Math.random() > 0.7 : p.isBookmarked}));
 };
 
@@ -109,6 +102,7 @@ export const getPaperById = async (id: string): Promise<Paper | undefined> => {
   await new Promise(resolve => setTimeout(resolve, 300));
   const paper = mockPapers.find(p => p.id === id);
   if (paper) {
+    // Similar to getPapers, assign a random bookmark status if not defined.
     return {...paper, isBookmarked: paper.isBookmarked === undefined ? Math.random() > 0.5 : paper.isBookmarked};
   }
   return undefined;
@@ -122,7 +116,7 @@ export const getCommentsByPaperId = async (paperId: string): Promise<Comment[]> 
 export const addComment = async (paperId: string, userId: string, text: string): Promise<Comment> => {
   await new Promise(resolve => setTimeout(resolve, 300));
   const user = mockUsers.find(u => u.id === userId);
-  if (!user) throw new Error("User not found");
+  if (!user) throw new Error("User not found for adding comment"); // More specific error
   const newComment: Comment = {
     id: `c${mockComments.length + 1}${Date.now()}`, // Ensure unique ID
     paperId,
@@ -141,6 +135,10 @@ export const toggleBookmark = async (paperId: string, userId: string): Promise<b
     await new Promise(resolve => setTimeout(resolve, 100));
     const paperIndex = mockPapers.findIndex(p => p.id === paperId);
     if (paperIndex !== -1) {
+        // Ensure isBookmarked has a default value before toggling
+        if (mockPapers[paperIndex].isBookmarked === undefined) {
+            mockPapers[paperIndex].isBookmarked = false; // Default to not bookmarked if undefined
+        }
         mockPapers[paperIndex].isBookmarked = !mockPapers[paperIndex].isBookmarked;
         return mockPapers[paperIndex].isBookmarked!;
     }
@@ -166,10 +164,16 @@ export const submitRating = async (paperId: string, userId: string, value: numbe
     const paper = mockPapers.find(p => p.id === paperId);
     if (paper) {
         const paperRatings = mockRatings.filter(r => r.paperId === paperId);
-        paper.averageRating = paperRatings.reduce((sum, r) => sum + r.value, 0) / paperRatings.length;
+        if (paperRatings.length > 0) {
+          paper.averageRating = paperRatings.reduce((sum, r) => sum + r.value, 0) / paperRatings.length;
+        } else {
+          paper.averageRating = 0; // Reset if all ratings are somehow removed (edge case)
+        }
         paper.ratingsCount = paperRatings.length;
     }
-    return mockRatings.find(r => r.paperId === paperId && r.userId === userId)!;
+    const currentRating = mockRatings.find(r => r.paperId === paperId && r.userId === userId);
+    if (!currentRating) throw new Error("Rating could not be processed or found after submission."); // Should not happen
+    return currentRating;
 }
 
 export const getBookmarkedPapers = async (userId: string): Promise<Paper[]> => {
@@ -208,7 +212,7 @@ export const createUser = async (name: string, email: string, role: UserRole): P
     name,
     email,
     role,
-    avatarUrl: `https://placehold.co/100x100?text=${name.charAt(0)}`, dataAiHint: 'user avatar' 
+    avatarUrl: `https://placehold.co/100x100/64B5F6/FFFFFF?text=${name.charAt(0)}`, dataAiHint: 'user avatar' 
   };
   mockUsers.push(newUser);
   return newUser;
@@ -229,7 +233,7 @@ export const addUploadedPaper = async (
     questions: [], 
     averageRating: 0,
     ratingsCount: 0,
-    isBookmarked: false,
+    isBookmarked: false, // Explicitly false for new uploads
   };
   mockPapers.unshift(newPaper); 
   return newPaper;
@@ -237,3 +241,4 @@ export const addUploadedPaper = async (
 
 
     
+
