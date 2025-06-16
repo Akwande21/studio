@@ -1,5 +1,6 @@
 
 import type { Paper, Comment, User, EducationalLevel, UserRole, Rating, Question } from './types';
+import { nonAdminRoles } from './types';
 
 // Admin email constant
 const ADMIN_EMAIL = "ndlovunkosy21@gmail.com";
@@ -257,3 +258,38 @@ export const addUploadedPaper = async (
   mockPapers.unshift(newPaper);
   return newPaper;
 };
+
+export const updateUserDetails = async (
+  userId: string, 
+  updates: { name?: string; role?: UserRole }
+): Promise<User | null> => {
+  await new Promise(resolve => setTimeout(resolve, 200));
+  const userIndex = mockUsers.findIndex(u => u.id === userId);
+  if (userIndex === -1) {
+    return null; // User not found
+  }
+
+  const userToUpdate = { ...mockUsers[userIndex] };
+
+  if (updates.name) {
+    userToUpdate.name = updates.name;
+  }
+
+  if (updates.role) {
+    // Prevent changing an Admin's role
+    // Prevent promoting a non-Admin to Admin
+    if (mockUsers[userIndex].role === 'Admin' && updates.role !== 'Admin') {
+      // Trying to demote an admin - disallow for this simple form
+      console.warn(`Attempt to change role of Admin user ${userId} was blocked.`);
+    } else if (mockUsers[userIndex].role !== 'Admin' && updates.role === 'Admin') {
+      // Trying to promote a user to Admin - disallow for this simple form
+      console.warn(`Attempt to promote user ${userId} to Admin was blocked.`);
+    } else if (mockUsers[userIndex].role !== 'Admin' && nonAdminRoles.includes(updates.role as Exclude<UserRole, "Admin">)) {
+      userToUpdate.role = updates.role;
+    }
+  }
+  
+  mockUsers[userIndex] = userToUpdate;
+  return userToUpdate;
+};
+

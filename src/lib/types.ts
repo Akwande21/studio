@@ -8,6 +8,8 @@ export interface Question {
 // For user roles
 export type UserRole = "High School" | "College" | "University" | "Admin";
 export const userRoles: UserRole[] = ["High School", "College", "University", "Admin"];
+export const nonAdminRoles: Exclude<UserRole, "Admin">[] = ["High School", "College", "University"];
+
 
 // For paper educational levels
 export type EducationalLevel = "High School" | "College" | "University";

@@ -2,9 +2,9 @@
 "use server";
 import { suggestRelatedTopics as suggestRelatedTopicsFlow, type SuggestRelatedTopicsInput, type SuggestRelatedTopicsOutput } from '@/ai/flows/suggest-related-topics';
 import { explainConcept as explainConceptFlow, type ExplainConceptInput, type ExplainConceptOutput } from '@/ai/flows/explain-concept-flow'; // Added import
-import { addComment as addMockComment, toggleBookmark as toggleMockBookmark, submitRating as submitMockRating, getPaperById, addUploadedPaper as addMockUploadedPaper, loginUser } from './data';
-import type { Paper, EducationalLevel } from './types';
-import { educationalLevels } from './types';
+import { addComment as addMockComment, toggleBookmark as toggleMockBookmark, submitRating as submitMockRating, getPaperById, addUploadedPaper as addMockUploadedPaper, loginUser, updateUserDetails as updateMockUserDetails, getUserById as getMockUserById } from './data';
+import type { Paper, EducationalLevel, UserRole } from './types';
+import { educationalLevels, nonAdminRoles } from './types';
 import { z } from 'zod';
 
 export async function handleSuggestRelatedTopics(
@@ -115,7 +115,6 @@ export async function handlePaperUpload(formData: FormData) {
 
     if (!validatedData.success) {
       console.error("Validation errors:", validatedData.error.flatten().fieldErrors);
-      // You could construct a more specific message from validatedData.error.flatten().fieldErrors
       const fieldErrors = validatedData.error.flatten().fieldErrors;
       let errorMessages = "Invalid form data. Please check the following: ";
       const messages = Object.entries(fieldErrors).map(([key, value]) => `${key}: ${value?.join(', ')}`);
@@ -154,42 +153,82 @@ export async function handleForgotPasswordRequest(email: string): Promise<{ succ
     return { success: false, message: "Please enter a valid email address." };
   }
   try {
-    // We use loginUser to check if the user exists, but we don't log them in.
     const userExists = await loginUser(email);
-    // Regardless of whether the user exists, we return a generic message
-    // to prevent email enumeration attacks.
     return {
       success: true,
       message: "If an account with that email exists, instructions to reset your password have been sent. Please check your inbox (and spam folder)."
     };
   } catch (error) {
     console.error("Error in handleForgotPasswordRequest:", error);
-    // Still return a generic message in case of an unexpected error during lookup.
     return {
-      success: true, // From the user's perspective, the action was "processed".
+      success: true, 
       message: "If an account with that email exists, instructions to reset your password have been sent. Please check your inbox (and spam folder)."
     };
   }
 }
 
 export async function handleResetPassword(newPassword: string): Promise<{ success: boolean; message: string }> {
-  // Input validation (basic)
   if (!newPassword || newPassword.length < 6) {
     return { success: false, message: "Password must be at least 6 characters long." };
   }
-
-  // In a real application, you would:
-  // 1. Validate the reset token (passed as an argument, typically from URL).
-  // 2. Find the user associated with the token.
-  // 3. Hash the newPassword.
-  // 4. Update the user's password in the database.
-  // 5. Invalidate the reset token.
-
-  // For this mock, we'll just simulate success.
   console.log(`Mock password reset: New password would be "${newPassword}"`);
-
-  // Simulate a short delay
   await new Promise(resolve => setTimeout(resolve, 500));
-
   return { success: true, message: "Your password has been successfully reset. You can now sign in with your new password." };
+}
+
+
+const updateUserSchema = z.object({
+  userId: z.string().min(1, "User ID is required."),
+  name: z.string().min(2, "Full name must be at least 2 characters.").max(50, "Full name must be 50 characters or less."),
+  role: z.enum(nonAdminRoles).optional(), // Role is optional, and if provided, must be a non-admin role
+});
+
+export async function handleUpdateUserDetails(formData: FormData) {
+  try {
+    const rawData = {
+      userId: formData.get('userId'),
+      name: formData.get('name'),
+      role: formData.get('role') || undefined, // Ensure undefined if not present
+    };
+
+    const validationResult = updateUserSchema.safeParse(rawData);
+
+    if (!validationResult.success) {
+      console.error("Update User Validation errors:", validationResult.error.flatten().fieldErrors);
+      return { success: false, message: "Invalid data provided.", errors: validationResult.error.flatten().fieldErrors };
+    }
+
+    const { userId, name, role } = validationResult.data;
+
+    const userToEdit = await getMockUserById(userId);
+    if (!userToEdit) {
+      return { success: false, message: "User not found." };
+    }
+
+    const updates: { name?: string; role?: UserRole } = { name };
+    
+    // Only include role in updates if it's actually being changed for a non-admin user
+    if (userToEdit.role !== 'Admin' && role && userToEdit.role !== role) {
+      updates.role = role;
+    } else if (userToEdit.role === 'Admin' && role && role !== 'Admin') {
+      // This case should ideally be prevented by the form UI (disabling role changes for admins)
+      // but as a safeguard in the action:
+      return { success: false, message: "Admin role cannot be changed." };
+    }
+
+
+    const updatedUser = await updateMockUserDetails(userId, updates);
+
+    if (updatedUser) {
+      return { success: true, user: updatedUser, message: "User details updated successfully." };
+    } else {
+      return { success: false, message: "Failed to update user details." };
+    }
+  } catch (error) {
+    console.error("Error in handleUpdateUserDetails:", error);
+    if (error instanceof z.ZodError) {
+        return { success: false, message: "Validation failed.", errors: error.flatten().fieldErrors };
+    }
+    return { success: false, message: "An unexpected error occurred while updating user details." };
+  }
 }
