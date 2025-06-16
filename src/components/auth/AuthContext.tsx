@@ -16,6 +16,8 @@ import { useToast } from '@/hooks/use-toast';
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const ADMIN_EMAIL_CONST = "ndlovunkosy21@gmail.com"; // Define admin email for easier reference
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -24,18 +26,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
       if (firebaseUser) {
-        // User is signed in, see docs for a list of available properties
-        // https://firebase.google.com/docs/reference/js/firebase.User
         const userProfile = await getUserProfileFromFirestore(firebaseUser.uid);
         if (userProfile) {
           setUser(userProfile);
         } else {
-          // This case might happen if Firestore profile creation failed or for an admin user
-          // who needs their profile bootstrapped.
-          if (firebaseUser.email === "ndlovunkosy21@gmail.com") { // Ensure this matches your admin email
+          if (firebaseUser.email === ADMIN_EMAIL_CONST) { 
             try {
               console.log("Admin user logged in, attempting to ensure Firestore profile exists.");
-              // Check if profile exists before attempting to create, to prevent errors if it was created elsewhere
               const existingAdminProfile = await getUserProfileFromFirestore(firebaseUser.uid);
               if (!existingAdminProfile) {
                 await addUserProfileToFirestore(firebaseUser.uid, "Admin User", firebaseUser.email!, "Admin");
@@ -46,7 +43,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               }
             } catch (e) {
                console.error("Failed to create or fetch Firestore profile for admin:", e);
-               setUser(null); // Or handle error appropriately
+               setUser(null); 
             }
           } else {
             console.warn(`User ${firebaseUser.uid} authenticated with Firebase, but no profile found in Firestore.`);
@@ -54,23 +51,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
         }
       } else {
-        // User is signed out
         setUser(null);
       }
       setLoading(false);
     });
 
-    return () => unsubscribe(); // Cleanup subscription on unmount
+    return () => unsubscribe(); 
   }, []);
 
   const signIn = useCallback(async (credentials: { email: string; password?: string }) => {
-    if (!credentials.password) {
+    let passwordToUse: string | undefined;
+
+    if (credentials.email === ADMIN_EMAIL_CONST) {
+      passwordToUse = "Nkosy@08"; // Hardcode password for admin
+    } else {
+      passwordToUse = credentials.password; // Use provided password for other users
+    }
+
+    if (!passwordToUse) { 
         toast({ title: "Sign In Failed", description: "Password is required.", variant: "destructive" });
         return;
     }
+    
     setLoading(true);
     try {
-      await signInWithEmailAndPassword(auth, credentials.email, credentials.password);
+      await signInWithEmailAndPassword(auth, credentials.email, passwordToUse);
       // onAuthStateChanged will handle setting the user state
     } catch (error: any) {
       console.error("Firebase Sign In Error:", error.code, error.message);
@@ -78,17 +83,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (error.code === 'auth/invalid-credential' || 
           error.code === 'auth/user-not-found' || 
           error.code === 'auth/wrong-password' ||
-          error.code === 'auth/invalid-email') { // Added auth/invalid-email
+          error.code === 'auth/invalid-email') { 
         errorMessage = "Invalid email or password. Please check your credentials and try again.";
       } else if (error.code === 'auth/user-disabled') {
         errorMessage = "This account has been disabled. Please contact support.";
       } else if (error.message) {
-        // Fallback to Firebase's error message if it's not one of the common ones
         errorMessage = error.message;
       }
       toast({ title: "Sign In Failed", description: errorMessage, variant: "destructive" });
     } finally {
-      // setLoading(false); // onAuthStateChanged handles final loading state, or set it after onAuthStateChanged resolves
+      // setLoading(false); // onAuthStateChanged handles final loading state
     }
   }, [toast]);
   
@@ -125,7 +129,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setLoading(true);
     try {
       await firebaseSignOut(auth);
-      // onAuthStateChanged will handle setting user to null
       toast({ title: "Signed Out", description: "You have been successfully signed out." });
     } catch (error: any) {
       toast({ title: "Sign Out Error", description: error.message, variant: "destructive" });
