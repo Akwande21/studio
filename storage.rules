@@ -1,0 +1,31 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o { // Matches all files in the bucket
+
+    // Rules for files within the 'papers' directory.
+    // The path structure used in the app is `papers/{uploaderId}/{fileName}`.
+    match /papers/{userId}/{fileName} {
+      // Allow write (create, update, delete) only if the requesting user's ID
+      // matches the {userId} segment in the path (which is the uploaderId),
+      // and the user is authenticated.
+      // This ensures users can only upload to their "own" subfolder within 'papers'.
+      allow write: if request.auth != null && request.auth.uid == userId;
+
+      // Allow read access to anyone for any file under any user's 'papers' subfolder.
+      // This makes papers publicly downloadable/viewable once uploaded.
+      allow read: if true;
+    }
+
+    // Example for user avatars, if you implement avatar uploads directly to storage:
+    // match /user-avatars/{userId}/{fileName} {
+    //   allow write: if request.auth != null && request.auth.uid == userId;
+    //   allow read: if true; // Public avatars
+    // }
+
+    // Default deny all other paths not explicitly matched
+    // match /{allPaths=**} {
+    //   allow read, write: if false;
+    // }
+  }
+}
