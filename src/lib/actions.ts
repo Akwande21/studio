@@ -1,11 +1,24 @@
 
 "use server";
 import { suggestRelatedTopics as suggestRelatedTopicsFlow, type SuggestRelatedTopicsInput, type SuggestRelatedTopicsOutput } from '@/ai/flows/suggest-related-topics';
-import { explainConcept as explainConceptFlow, type ExplainConceptInput, type ExplainConceptOutput } from '@/ai/flows/explain-concept-flow'; // Added import
-import { addComment as addMockComment, toggleBookmark as toggleMockBookmark, submitRating as submitMockRating, getPaperById, addUploadedPaper as addMockUploadedPaper, loginUser, updateUserDetails as updateMockUserDetails, getUserById as getMockUserById, mockSuggestions } from './data';
-import type { Paper, EducationalLevel, UserRole, Suggestion } from './types';
+import { explainConcept as explainConceptFlow, type ExplainConceptInput, type ExplainConceptOutput } from '@/ai/flows/explain-concept-flow'; 
+import { 
+  addComment as addMockComment, 
+  toggleBookmark as toggleMockBookmark, 
+  submitRating as submitMockRating, 
+  getPaperById, 
+  addUploadedPaper as addMockUploadedPaper,
+  updateUserProfileInFirestore, // Changed from updateMockUserDetails
+  getUserProfileFromFirestore, // Changed from getMockUserById
+  mockSuggestions, // For admin suggestions, will be replaced by Firestore
+  getAllUsersFromFirestore // For admin users page
+} from './data';
+import type { Paper, EducationalLevel, UserRole, Suggestion, User } from './types';
 import { educationalLevels, nonAdminRoles } from './types';
 import { z } from 'zod';
+import { auth } from '@/lib/firebaseConfig'; // For password reset
+import { sendPasswordResetEmail } from 'firebase/auth';
+
 
 export async function handleSuggestRelatedTopics(
   questionText: string,
@@ -55,6 +68,7 @@ export async function handleExplainQuestionConcept(
 
 
 export async function handleAddComment(paperId: string, userId: string, text: string) {
+  // This should be refactored to use Firestore for comments
   try {
     const comment = await addMockComment(paperId, userId, text);
     return { success: true, comment };
@@ -64,6 +78,7 @@ export async function handleAddComment(paperId: string, userId: string, text: st
 }
 
 export async function handleToggleBookmark(paperId: string, userId: string) {
+  // This should be refactored to use Firestore for bookmarks
   try {
     const isBookmarked = await toggleMockBookmark(paperId, userId);
     return { success: true, isBookmarked };
@@ -73,9 +88,10 @@ export async function handleToggleBookmark(paperId: string, userId: string) {
 }
 
 export async function handleSubmitRating(paperId: string, userId: string, value: number) {
+  // This should be refactored to use Firestore for ratings
   try {
     const rating = await submitMockRating(paperId, userId, value);
-    const updatedPaper = await getPaperById(paperId);
+    const updatedPaper = await getPaperById(paperId); // This also needs Firestore
     return { success: true, rating, averageRating: updatedPaper?.averageRating, ratingsCount: updatedPaper?.ratingsCount };
   } catch (error) {
     return { success: false, message: (error as Error).message };
@@ -102,6 +118,7 @@ const paperUploadActionSchema = z.object({
 
 
 export async function handlePaperUpload(formData: FormData) {
+  // This should save paper metadata to Firestore and file to Firebase Storage
   try {
     const validatedData = paperUploadActionSchema.safeParse({
       title: formData.get('title'),
@@ -111,7 +128,6 @@ export async function handlePaperUpload(formData: FormData) {
       year: formData.get('year'),
       file: formData.get('file'),
     });
-
 
     if (!validatedData.success) {
       console.error("Validation errors:", validatedData.error.flatten().fieldErrors);
@@ -125,7 +141,7 @@ export async function handlePaperUpload(formData: FormData) {
     const { title, description, level, subject, year, file } = validatedData.data;
 
     const fileName = file.name.replace(/\s+/g, '_');
-    const mockDownloadUrl = `/papers/uploads/mock_${Date.now()}_${fileName}`;
+    const mockDownloadUrl = `/papers/uploads/mock_${Date.now()}_${fileName}`; // Placeholder
 
     const newPaperData: Omit<Paper, 'id' | 'averageRating' | 'ratingsCount' | 'questions' | 'isBookmarked'> & { downloadUrl: string } = {
       title,
@@ -133,10 +149,10 @@ export async function handlePaperUpload(formData: FormData) {
       level,
       subject,
       year,
-      downloadUrl: mockDownloadUrl,
+      downloadUrl: mockDownloadUrl, // This would be a Firebase Storage URL
     };
 
-    const newPaper = await addMockUploadedPaper(newPaperData);
+    const newPaper = await addMockUploadedPaper(newPaperData); // Replace with Firestore save
     return { success: true, paper: newPaper };
 
   } catch (error) {
@@ -153,29 +169,23 @@ export async function handleForgotPasswordRequest(email: string): Promise<{ succ
     return { success: false, message: "Please enter a valid email address." };
   }
   try {
-    const userExists = await loginUser(email);
+    // This action is now handled directly by AuthContext calling Firebase SDK
+    // Keeping this structure if direct server action call is preferred for some reason, but AuthContext is better.
+    await sendPasswordResetEmail(auth, email);
     return {
       success: true,
       message: "If an account with that email exists, instructions to reset your password have been sent. Please check your inbox (and spam folder)."
     };
-  } catch (error) {
-    console.error("Error in handleForgotPasswordRequest:", error);
+  } catch (error: any) {
+    console.error("Error in handleForgotPasswordRequest (action):", error);
     return {
-      success: true, 
-      message: "If an account with that email exists, instructions to reset your password have been sent. Please check your inbox (and spam folder)."
+      success: false, 
+      message: error.message || "Failed to send password reset email."
     };
   }
 }
 
-export async function handleResetPassword(newPassword: string): Promise<{ success: boolean; message: string }> {
-  if (!newPassword || newPassword.length < 6) {
-    return { success: false, message: "Password must be at least 6 characters long." };
-  }
-  console.log(`Mock password reset: New password would be "${newPassword}"`);
-  await new Promise(resolve => setTimeout(resolve, 500));
-  return { success: true, message: "Your password has been successfully reset. You can now sign in with your new password." };
-}
-
+// handleResetPassword is removed as Firebase handles this flow via email link.
 
 const updateUserSchema = z.object({
   userId: z.string().min(1, "User ID is required."),
@@ -194,30 +204,26 @@ export async function handleUpdateUserDetails(formData: FormData) {
     const validationResult = updateUserSchema.safeParse(rawData);
 
     if (!validationResult.success) {
-      console.error("Update User Validation errors:", validationResult.error.flatten().fieldErrors);
       return { success: false, message: "Invalid data provided.", errors: validationResult.error.flatten().fieldErrors };
     }
 
     const { userId, name, role } = validationResult.data;
 
-    const userToEdit = await getMockUserById(userId);
+    const userToEdit = await getUserProfileFromFirestore(userId);
     if (!userToEdit) {
       return { success: false, message: "User not found." };
     }
 
     const updates: { name?: string; role?: UserRole } = { name };
-    
-    
     if (userToEdit.role !== 'Admin' && role && userToEdit.role !== role) {
       updates.role = role;
     } else if (userToEdit.role === 'Admin' && role && role !== 'Admin') {
-      
-      
-      return { success: false, message: "Admin role cannot be changed." };
+      return { success: false, message: "Admin role cannot be changed through this form." };
+    } else if (role && role === 'Admin' && userToEdit.role !== 'Admin') {
+      return { success: false, message: "Cannot promote user to Admin through this form." };
     }
 
-
-    const updatedUser = await updateMockUserDetails(userId, updates);
+    const updatedUser = await updateUserProfileInFirestore(userId, updates);
 
     if (updatedUser) {
       return { success: true, user: updatedUser, message: "User details updated successfully." };
@@ -229,7 +235,7 @@ export async function handleUpdateUserDetails(formData: FormData) {
     if (error instanceof z.ZodError) {
         return { success: false, message: "Validation failed.", errors: error.flatten().fieldErrors };
     }
-    return { success: false, message: "An unexpected error occurred while updating user details." };
+    return { success: false, message: (error as Error).message || "An unexpected error occurred while updating user details." };
   }
 }
 
@@ -241,6 +247,7 @@ const sendSuggestionSchema = z.object({
 });
 
 export async function handleSendSuggestionToAdmin(formData: FormData) {
+  // This should save suggestions to Firestore
   try {
     const rawData = {
       name: formData.get('name') || undefined,
@@ -261,17 +268,21 @@ export async function handleSendSuggestionToAdmin(formData: FormData) {
 
     const { name, email, subject, message } = validationResult.data;
 
-    const newSuggestion: Suggestion = {
-      id: `sug-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+    const newSuggestion: Omit<Suggestion, 'id' | 'timestamp'> & {timestamp?: any} = { // Prepare for Firestore
       name: name || undefined,
       email: email || undefined,
       subject,
       message,
-      timestamp: new Date().toISOString(),
-      isRead: false, // Default to unread
+      timestamp: serverTimestamp(), // Use Firestore server timestamp
+      isRead: false, 
     };
+    
+    // Save to Firestore 'suggestions' collection
+    // Example: await addDoc(collection(db, "suggestions"), newSuggestion);
+    // For now, adding to mockSuggestions
+    const tempId = `sug-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+    mockSuggestions.unshift({id: tempId, ...newSuggestion, timestamp: new Date().toISOString()} as Suggestion);
 
-    mockSuggestions.unshift(newSuggestion); // Add to the beginning of the array so newest are first
 
     return { success: true, message: "Thank you for your suggestion! It has been received." };
 

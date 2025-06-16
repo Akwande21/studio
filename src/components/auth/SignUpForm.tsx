@@ -8,10 +8,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/hooks/useAuth';
 import type { UserRole } from '@/lib/types';
-import { userRoles } from '@/lib/types';
+import { userRoles } from '@/lib/types'; // userRoles includes 'Admin'
 import Link from 'next/link';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner';
 import { UserPlus } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 export function SignUpForm() {
   const [name, setName] = useState('');
@@ -19,18 +20,22 @@ export function SignUpForm() {
   const [password, setPassword] = useState('');
   const [role, setRole] = useState<UserRole | ''>('');
   const { signUp, loading } = useAuth();
+  const { toast } = useToast();
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!role) {
-        alert("Please select a role.");
+        toast({title: "Role Required", description: "Please select a role.", variant: "destructive"});
         return;
     }
-    // The password here is for the form field but not strictly used by the mock signUp
-    await signUp({ name, email, role });
+    if (!password) {
+        toast({title: "Password Required", description: "Please enter a password.", variant: "destructive"});
+        return;
+    }
+    await signUp({ name, email, password, role });
   };
 
-  // Filter out 'Admin' role for selection
+  // Filter out 'Admin' role for public selection
   const selectableRoles = userRoles.filter(r => r !== 'Admin');
 
   return (
@@ -50,6 +55,7 @@ export function SignUpForm() {
               value={name}
               onChange={(e) => setName(e.target.value)}
               required
+              autoComplete="name"
               className="focus-visible:ring-primary"
             />
           </div>
@@ -62,6 +68,7 @@ export function SignUpForm() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
+              autoComplete="email"
               className="focus-visible:ring-primary"
             />
           </div>
@@ -74,6 +81,7 @@ export function SignUpForm() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
+              autoComplete="new-password"
               className="focus-visible:ring-primary"
             />
           </div>
@@ -86,8 +94,7 @@ export function SignUpForm() {
               <SelectContent>
                 {selectableRoles.map((lvl) => (
                   <SelectItem key={lvl} value={lvl}>
-                    {/* 'Admin' role is filtered out, so this ternary is effectively for student roles */}
-                    {lvl === 'Admin' ? 'Admin' : `${lvl} Student`}
+                    {`${lvl} Student`}
                   </SelectItem>
                 ))}
               </SelectContent>

@@ -8,32 +8,25 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import Link from 'next/link';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner';
 import { MailQuestion } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
-import { handleForgotPasswordRequest } from '@/lib/actions';
+import { useAuth } from '@/hooks/useAuth'; // Import useAuth to access sendPasswordResetEmail
 
 export function ForgotPasswordForm() {
   const [email, setEmail] = useState('');
-  const [isPending, startTransition] = useTransition();
-  const { toast } = useToast();
+  const { sendPasswordResetEmail, loading } = useAuth(); // Use loading state from AuthContext
+  const [isSubmitting, setIsSubmitting] = useState(false); // Local submitting state
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    startTransition(async () => {
-      const result = await handleForgotPasswordRequest(email);
-      if (result.success) {
-        toast({
-          title: "Request Submitted",
-          description: result.message,
-        });
-        setEmail(''); // Clear email field on success
-      } else {
-        toast({
-          title: "Error",
-          description: result.message || "An unexpected error occurred.",
-          variant: "destructive",
-        });
-      }
-    });
+    setIsSubmitting(true);
+    try {
+      await sendPasswordResetEmail(email);
+      // Toast is handled within AuthContext's sendPasswordResetEmail
+      setEmail(''); // Clear email field on success
+    } catch (error) {
+      // Error toast is also handled within AuthContext
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -55,14 +48,14 @@ export function ForgotPasswordForm() {
               onChange={(e) => setEmail(e.target.value)}
               required
               className="focus-visible:ring-primary"
-              disabled={isPending}
+              disabled={loading || isSubmitting}
             />
           </div>
         </CardContent>
         <CardFooter className="flex flex-col gap-4">
-          <Button type="submit" className="w-full" disabled={isPending}>
-            {isPending ? <LoadingSpinner size={20} className="mr-2"/> : <MailQuestion className="mr-2 h-4 w-4" /> }
-            Send Reset Instructions
+          <Button type="submit" className="w-full" disabled={loading || isSubmitting}>
+            {(loading || isSubmitting) ? <LoadingSpinner size={20} className="mr-2"/> : <MailQuestion className="mr-2 h-4 w-4" /> }
+            Send Reset Email
           </Button>
           <p className="text-sm text-muted-foreground">
             Remember your password?{' '}

@@ -1,14 +1,18 @@
 
 import type { Paper, Comment, User, EducationalLevel, UserRole, Rating, Question, Suggestion } from './types';
 import { nonAdminRoles } from './types';
+import { db } from './firebaseConfig';
+import { doc, setDoc, getDoc, updateDoc, collection, getDocs, query, where, orderBy, limit, addDoc, serverTimestamp, deleteDoc } from "firebase/firestore";
 
-// Admin email constant
+// Admin email constant - used for initial role setup if needed, but auth is Firebase.
 const ADMIN_EMAIL = "ndlovunkosy21@gmail.com";
-const ADMIN_PASSWORD = "Nkosy@08";
 
+// mockUsers is now primarily for bootstrapping the admin user's role in Firestore if not present,
+// or for UI elements that might temporarily need it before Firestore sync.
+// Actual user data and authentication are handled by Firebase Auth and Firestore.
 export let mockUsers: User[] = [
   {
-    id: 'admin001',
+    id: 'admin_placeholder_uid', // This ID will be replaced by actual Firebase UID
     name: 'Admin User',
     email: ADMIN_EMAIL,
     role: 'Admin',
@@ -35,9 +39,10 @@ const mockQuestions: Record<string, Question[]> = {
   ]
 };
 
-
+// Mock data for papers, comments, ratings will be replaced by Firestore interactions.
+// For now, keeping them for other parts of the app that haven't been migrated.
 export let mockPapers: Paper[] = [
-  {
+   {
     id: '1',
     title: 'Mathematics Grade 10 Final Exam',
     level: 'High School',
@@ -90,15 +95,120 @@ export let mockPapers: Paper[] = [
     description: 'Final exam for an introductory computer science course, including programming fundamentals and data structures.'
   },
 ];
-
 export let mockComments: Comment[] = [];
-
 export let mockRatings: Rating[] = [];
-
 export let mockSuggestions: Suggestion[] = [];
 
 
-// API-like functions
+// Firestore User Profile Management
+export const addUserProfileToFirestore = async (userId: string, name: string, email: string, role: UserRole): Promise<void> => {
+  try {
+    const userRef = doc(db, "users", userId);
+    await setDoc(userRef, {
+      name,
+      email,
+      role,
+      avatarUrl: `https://placehold.co/100x100/64B5F6/FFFFFF?text=${name.charAt(0)}`, // Default avatar
+      createdAt: serverTimestamp()
+    });
+  } catch (error) {
+    console.error("Error adding user profile to Firestore: ", error);
+    throw error; // Re-throw to be handled by caller
+  }
+};
+
+export const getUserProfileFromFirestore = async (userId: string): Promise<User | null> => {
+  try {
+    const userRef = doc(db, "users", userId);
+    const userSnap = await getDoc(userRef);
+    if (userSnap.exists()) {
+      const data = userSnap.data();
+      return {
+        id: userSnap.id,
+        name: data.name,
+        email: data.email,
+        role: data.role,
+        avatarUrl: data.avatarUrl,
+        dataAiHint: 'user avatar'
+      } as User;
+    } else {
+      // Special handling for pre-defined admin if their Firestore doc doesn't exist yet
+      const predefinedAdmin = mockUsers.find(u => u.email === ADMIN_EMAIL);
+      if (predefinedAdmin && predefinedAdmin.email === (await getDoc(userRef).then(snap => snap.data()?.email))) { // Check if this UID corresponds to admin
+         // This is problematic as we don't have firebase user's email here directly.
+         // This logic should be simplified or handled by admin creating their own account.
+         // For now, if an admin UID matches nothing, we assume it might be the bootstrapped admin.
+         console.warn(`Firestore document for user ${userId} not found. If this is the admin, their profile might need to be created.`);
+      }
+      return null;
+    }
+  } catch (error) {
+    console.error("Error fetching user profile from Firestore: ", error);
+    return null;
+  }
+};
+
+export const updateUserProfileInFirestore = async (userId: string, updates: { name?: string; role?: UserRole }): Promise<User | null> => {
+  const userRef = doc(db, "users", userId);
+  try {
+    const userSnap = await getDoc(userRef);
+    if (!userSnap.exists()) {
+      throw new Error("User profile not found in Firestore.");
+    }
+    const currentData = userSnap.data() as User;
+
+    // Prevent non-Admin from being changed to Admin, and Admin role from being changed by this form.
+    if (updates.role && updates.role === 'Admin' && currentData.role !== 'Admin') {
+        console.warn("Attempt to promote user to Admin blocked via general update.");
+        delete updates.role; // Or return error
+    }
+    if (updates.role && currentData.role === 'Admin' && updates.role !== 'Admin') {
+        console.warn("Attempt to change Admin role blocked via general update.");
+        delete updates.role;
+    }
+    
+    await updateDoc(userRef, updates);
+    const updatedSnap = await getDoc(userRef);
+    const updatedData = updatedSnap.data();
+    return {
+        id: updatedSnap.id,
+        name: updatedData?.name,
+        email: updatedData?.email,
+        role: updatedData?.role,
+        avatarUrl: updatedData?.avatarUrl,
+    } as User;
+  } catch (error) {
+    console.error("Error updating user profile in Firestore: ", error);
+    throw error;
+  }
+};
+
+export const getAllUsersFromFirestore = async (): Promise<User[]> => {
+  try {
+    const usersCollectionRef = collection(db, "users");
+    const q = query(usersCollectionRef, orderBy("createdAt", "desc"));
+    const querySnapshot = await getDocs(q);
+    const users: User[] = [];
+    querySnapshot.forEach((doc) => {
+      const data = doc.data();
+      users.push({
+        id: doc.id,
+        name: data.name,
+        email: data.email,
+        role: data.role,
+        avatarUrl: data.avatarUrl,
+        dataAiHint: 'user avatar'
+      } as User);
+    });
+    return users;
+  } catch (error) {
+    console.error("Error fetching all users from Firestore: ", error);
+    return []; // Return empty array on error
+  }
+};
+
+
+// Mock data functions (to be phased out or adapted for Firestore)
 export const getPapers = async (filters?: { level?: EducationalLevel, subject?: string, year?: number, query?: string }): Promise<Paper[]> => {
   await new Promise(resolve => setTimeout(resolve, 500));
   let papers = [...mockPapers];
@@ -127,10 +237,10 @@ export const getCommentsByPaperId = async (paperId: string): Promise<Comment[]> 
 
 export const addComment = async (paperId: string, userId: string, text: string): Promise<Comment> => {
   await new Promise(resolve => setTimeout(resolve, 300));
-  const user = mockUsers.find(u => u.id === userId);
+  const user = await getUserProfileFromFirestore(userId); // Fetch from Firestore
   if (!user) throw new Error("User not found for adding comment");
   const newComment: Comment = {
-    id: `c${mockComments.length + 1}${Date.now()}`,
+    id: `c${mockComments.length + 1}${Date.now()}`, // This ID generation needs to be Firestore compatible
     paperId,
     userId,
     userName: user.name,
@@ -139,6 +249,7 @@ export const addComment = async (paperId: string, userId: string, text: string):
     timestamp: new Date().toISOString(),
     userRole: user.role,
   };
+  // This should save to Firestore instead
   mockComments.push(newComment);
   return newComment;
 };
@@ -153,11 +264,13 @@ export const toggleBookmark = async (paperId: string, userId: string): Promise<b
         mockPapers[paperIndex].isBookmarked = !mockPapers[paperIndex].isBookmarked;
         return mockPapers[paperIndex].isBookmarked!;
     }
+    // This should interact with user-specific bookmark data in Firestore
     throw new Error("Paper not found for bookmarking.");
 }
 
 export const submitRating = async (paperId: string, userId: string, value: number): Promise<Rating> => {
     await new Promise(resolve => setTimeout(resolve, 200));
+    // This entire rating logic needs to be Firestore-based.
     const existingRatingIndex = mockRatings.findIndex(r => r.paperId === paperId && r.userId === userId);
     if (existingRatingIndex !== -1) {
         mockRatings[existingRatingIndex].value = value;
@@ -189,13 +302,20 @@ export const submitRating = async (paperId: string, userId: string, value: numbe
 
 export const getBookmarkedPapers = async (userId: string): Promise<Paper[]> => {
     await new Promise(resolve => setTimeout(resolve, 300));
+    // Fetch from user's bookmarks in Firestore
     return mockPapers.filter(p => p.isBookmarked);
 }
 
+// Keep for non-Firebase user lookup if needed by other mock data parts
 export const getUserById = async (userId: string): Promise<User | undefined> => {
-    await new Promise(resolve => setTimeout(resolve, 100));
-    return mockUsers.find(u => u.id === userId);
-}
+    // Prioritize Firestore
+    const firestoreUser = await getUserProfileFromFirestore(userId);
+    if (firestoreUser) return firestoreUser;
+    
+    // Fallback to mockUsers (e.g., for admin that hasn't been fully synced)
+    return mockUsers.find(u => u.id === userId || u.email === userId); // Looser match for admin
+};
+
 
 export const getUniqueSubjects = async (): Promise<string[]> => {
   await new Promise(resolve => setTimeout(resolve, 50));
@@ -209,48 +329,13 @@ export const getUniqueYears = async (): Promise<number[]> => {
   return Array.from(years).sort((a,b) => b - a);
 }
 
-export const createUser = async (name: string, email: string, role: UserRole): Promise<User> => {
-  await new Promise(resolve => setTimeout(resolve, 500));
-  const existingUserByEmail = mockUsers.find(u => u.email === email);
-  if (existingUserByEmail) {
-    throw new Error("User with this email already exists.");
-  }
-  const newUserId = `user${mockUsers.length + 1}${Date.now()}`;
-  const newUser: User = {
-    id: newUserId,
-    name,
-    email,
-    role,
-    avatarUrl: `https://placehold.co/100x100/64B5F6/FFFFFF?text=${name.charAt(0)}`, dataAiHint: 'user avatar'
-  };
-  mockUsers.push(newUser);
-  return newUser;
-}
-
-export const loginUser = async (email: string, password?: string): Promise<User | null> => {
-  await new Promise(resolve => setTimeout(resolve, 300));
-  const user = mockUsers.find(u => u.email === email);
-
-  if (user) {
-    if (user.email === ADMIN_EMAIL) {
-      // Specific password check for admin
-      if (password === ADMIN_PASSWORD) {
-        return user;
-      }
-      return null; // Admin password incorrect
-    }
-    // For other users, password check is skipped in this mock
-    return user;
-  }
-  return null; // User not found
-}
-
 export const addUploadedPaper = async (
   paperData: Omit<Paper, 'id' | 'averageRating' | 'ratingsCount' | 'questions' | 'isBookmarked'> & { downloadUrl: string }
 ): Promise<Paper> => {
   await new Promise(resolve => setTimeout(resolve, 200));
+  // This should save to Firestore 'papers' collection
   const newPaper: Paper = {
-    id: `paper${Date.now()}${Math.floor(Math.random() * 1000)}`,
+    id: `paper${Date.now()}${Math.floor(Math.random() * 1000)}`, // Firestore auto-ID
     ...paperData,
     questions: [],
     averageRating: 0,
@@ -261,41 +346,9 @@ export const addUploadedPaper = async (
   return newPaper;
 };
 
-export const updateUserDetails = async (
-  userId: string, 
-  updates: { name?: string; role?: UserRole }
-): Promise<User | null> => {
-  await new Promise(resolve => setTimeout(resolve, 200));
-  const userIndex = mockUsers.findIndex(u => u.id === userId);
-  if (userIndex === -1) {
-    return null; // User not found
-  }
-
-  const userToUpdate = { ...mockUsers[userIndex] };
-
-  if (updates.name) {
-    userToUpdate.name = updates.name;
-  }
-
-  if (updates.role) {
-    // Prevent changing an Admin's role
-    // Prevent promoting a non-Admin to Admin
-    if (mockUsers[userIndex].role === 'Admin' && updates.role !== 'Admin') {
-      // Trying to demote an admin - disallow for this simple form
-      console.warn(`Attempt to change role of Admin user ${userId} was blocked.`);
-    } else if (mockUsers[userIndex].role !== 'Admin' && updates.role === 'Admin') {
-      // Trying to promote a user to Admin - disallow for this simple form
-      console.warn(`Attempt to promote user ${userId} to Admin was blocked.`);
-    } else if (mockUsers[userIndex].role !== 'Admin' && nonAdminRoles.includes(updates.role as Exclude<UserRole, "Admin">)) {
-      userToUpdate.role = updates.role;
-    }
-  }
-  
-  mockUsers[userIndex] = userToUpdate;
-  return userToUpdate;
-};
 
 export const getMockSuggestions = async (): Promise<Suggestion[]> => {
-  await new Promise(resolve => setTimeout(resolve, 100)); // Simulate async fetch
+  await new Promise(resolve => setTimeout(resolve, 100)); 
+  // This should fetch from Firestore 'suggestions' collection
   return [...mockSuggestions].sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 };

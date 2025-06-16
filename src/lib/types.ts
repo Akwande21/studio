@@ -43,12 +43,12 @@ export interface Comment {
 }
 
 export interface User {
-  id: string;
+  id: string; // Firebase UID
   name: string;
   email: string;
   role: UserRole;
   avatarUrl?: string;
-  dataAiHint?: string; // Added for placeholder consistency
+  dataAiHint?: string; 
 }
 
 export interface Rating {
@@ -60,9 +60,11 @@ export interface Rating {
 
 export interface AuthContextType {
   user: User | null;
-  signIn: (credentials: { email: string; password?: string }) => Promise<void>; // Added password
-  signUp: (details: { name: string; email: string; role: UserRole }) => Promise<void>;
+  // firebaseUser: FirebaseUser | null; // If we need to expose the raw Firebase user
+  signIn: (credentials: { email: string; password?: string }) => Promise<void>; 
+  signUp: (details: { name: string; email: string; password?: string; role: UserRole }) => Promise<void>; // Added password
   signOut: () => void;
+  sendPasswordResetEmail: (email: string) => Promise<void>;
   loading: boolean;
   isAuthenticated: boolean;
 }

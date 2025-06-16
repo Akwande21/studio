@@ -1,11 +1,18 @@
 
 "use client";
 import type { User, UserRole, AuthContextType } from '@/lib/types';
-import { createUser, loginUser, mockUsers } from '@/lib/data';
+import { auth, db } from '@/lib/firebaseConfig'; // Import Firebase auth and db
+import { 
+  onAuthStateChanged, 
+  signInWithEmailAndPassword, 
+  createUserWithEmailAndPassword, 
+  signOut as firebaseSignOut,
+  sendPasswordResetEmail as firebaseSendPasswordResetEmail,
+  type User as FirebaseUser 
+} from 'firebase/auth';
+import { addUserProfileToFirestore, getUserProfileFromFirestore } from '@/lib/data';
 import React, { createContext, useState, useEffect, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
-
-const MOCK_USER_STORAGE_KEY = 'papertrail_mock_user';
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -15,81 +22,112 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const { toast } = useToast();
 
   useEffect(() => {
-    try {
-      const storedUserString = localStorage.getItem(MOCK_USER_STORAGE_KEY);
-      if (storedUserString) {
-        const loadedUserFromStorage: User = JSON.parse(storedUserString);
-        
-        const userInMockData = mockUsers.find(u => u.id === loadedUserFromStorage.id);
-        if (!userInMockData) {
-          const existingUserByEmail = mockUsers.find(u => u.email === loadedUserFromStorage.email);
-          if (!existingUserByEmail) {
-            mockUsers.push(loadedUserFromStorage);
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
+      if (firebaseUser) {
+        // User is signed in, see docs for a list of available properties
+        // https://firebase.google.com/docs/reference/js/firebase.User
+        const userProfile = await getUserProfileFromFirestore(firebaseUser.uid);
+        if (userProfile) {
+          setUser(userProfile);
+        } else {
+          // This case might happen if Firestore profile creation failed or for an admin user
+          // who needs their profile bootstrapped.
+          // For simplicity, if an admin logs in and has no Firestore profile, we can try to create one.
+          // This is a basic way to handle it; more robust solutions exist.
+          if (firebaseUser.email === "ndlovunkosy21@gmail.com") {
+            try {
+              console.log("Admin user logged in, attempting to ensure Firestore profile exists.");
+              await addUserProfileToFirestore(firebaseUser.uid, "Admin User", firebaseUser.email!, "Admin");
+              const newProfile = await getUserProfileFromFirestore(firebaseUser.uid);
+              setUser(newProfile);
+            } catch (e) {
+               console.error("Failed to create Firestore profile for admin:", e);
+               setUser(null); // Or handle error appropriately
+            }
           } else {
-            localStorage.setItem(MOCK_USER_STORAGE_KEY, JSON.stringify(existingUserByEmail));
-            setUser(existingUserByEmail);
-            setLoading(false);
-            return;
+            console.warn(`User ${firebaseUser.uid} authenticated with Firebase, but no profile found in Firestore.`);
+            // Potentially sign them out or prompt for profile creation.
+            // For now, treat as not fully logged in to our app context.
+            setUser(null); 
           }
         }
-        setUser(loadedUserFromStorage);
+      } else {
+        // User is signed out
+        setUser(null);
       }
-    } catch (error) {
-      console.error("Failed to load user from localStorage or sync with mock data", error);
-      localStorage.removeItem(MOCK_USER_STORAGE_KEY);
-      setUser(null); 
-    } finally {
       setLoading(false);
-    }
+    });
+
+    return () => unsubscribe(); // Cleanup subscription on unmount
   }, []);
 
-  const signIn = useCallback(async (credentials: { email: string; password?: string }) => { 
+  const signIn = useCallback(async (credentials: { email: string; password?: string }) => {
+    if (!credentials.password) {
+        toast({ title: "Sign In Failed", description: "Password is required.", variant: "destructive" });
+        return;
+    }
     setLoading(true);
     try {
-      // Pass both email and password to loginUser
-      const foundUser = await loginUser(credentials.email, credentials.password);
-
-      if (foundUser) {
-        setUser(foundUser);
-        localStorage.setItem(MOCK_USER_STORAGE_KEY, JSON.stringify(foundUser));
-        toast({ title: "Signed In", description: `Welcome back, ${foundUser.name}!` });
-      } else {
-        // Check if it was an admin login attempt that failed due to password
-        if (credentials.email === "ndlovunkosy21@gmail.com") {
-             toast({ title: "Sign In Failed", description: "Invalid admin credentials.", variant: "destructive" });
-        } else {
-            toast({ title: "Sign In Failed", description: "User not found or invalid credentials.", variant: "destructive" });
-        }
-      }
-    } catch (error) {
-      toast({ title: "Sign In Error", description: (error as Error).message, variant: "destructive" });
+      await signInWithEmailAndPassword(auth, credentials.email, credentials.password);
+      // onAuthStateChanged will handle setting the user state
+      // toast({ title: "Signed In", description: `Welcome back!` }); // Toast can be shown here or after user state is set
+    } catch (error: any) {
+      console.error("Firebase Sign In Error:", error);
+      toast({ title: "Sign In Failed", description: error.message || "Invalid credentials.", variant: "destructive" });
     } finally {
-      setLoading(false);
+      // setLoading(false); // onAuthStateChanged handles final loading state
     }
   }, [toast]);
   
-  const signUp = useCallback(async (details: { name: string; email: string; role: UserRole }) => {
+  const signUp = useCallback(async (details: { name: string; email: string; password?: string; role: UserRole }) => {
+    if (!details.password) {
+        toast({ title: "Sign Up Failed", description: "Password is required.", variant: "destructive" });
+        return;
+    }
     setLoading(true);
     try {
-      const newUser = await createUser(details.name, details.email, details.role);
-      setUser(newUser);
-      localStorage.setItem(MOCK_USER_STORAGE_KEY, JSON.stringify(newUser));
-      toast({ title: "Sign Up Successful", description: `Welcome, ${newUser.name}!` });
-    } catch (error) {
-      toast({ title: "Sign Up Error", description: (error as Error).message, variant: "destructive" });
+      const userCredential = await createUserWithEmailAndPassword(auth, details.email, details.password);
+      const firebaseUser = userCredential.user;
+      // Store additional user details (name, role) in Firestore
+      await addUserProfileToFirestore(firebaseUser.uid, details.name, details.email, details.role);
+      // onAuthStateChanged will handle setting the user state
+      // toast({ title: "Sign Up Successful", description: `Welcome, ${details.name}!` });
+    } catch (error: any) {
+      console.error("Firebase Sign Up Error:", error);
+      toast({ title: "Sign Up Error", description: error.message || "Could not create account.", variant: "destructive" });
     } finally {
-      setLoading(false);
+      // setLoading(false); // onAuthStateChanged handles final loading state
     }
   }, [toast]);
 
-  const signOut = useCallback(() => {
-    setUser(null);
-    localStorage.removeItem(MOCK_USER_STORAGE_KEY);
-    toast({ title: "Signed Out", description: "You have been successfully signed out." });
+  const signOut = useCallback(async () => {
+    setLoading(true);
+    try {
+      await firebaseSignOut(auth);
+      // onAuthStateChanged will handle setting user to null
+      toast({ title: "Signed Out", description: "You have been successfully signed out." });
+    } catch (error: any) {
+      toast({ title: "Sign Out Error", description: error.message, variant: "destructive" });
+    } finally {
+       // setLoading(false); // onAuthStateChanged handles final loading state
+    }
   }, [toast]);
 
+  const sendPasswordResetEmail = useCallback(async (email: string) => {
+    setLoading(true);
+    try {
+        await firebaseSendPasswordResetEmail(auth, email);
+        toast({ title: "Password Reset Email Sent", description: "Check your email for instructions to reset your password." });
+    } catch (error: any) {
+        toast({ title: "Password Reset Error", description: error.message, variant: "destructive"});
+    } finally {
+        setLoading(false);
+    }
+  }, [toast]);
+
+
   return (
-    <AuthContext.Provider value={{ user, signIn, signUp, signOut, loading, isAuthenticated: !!user && !loading }}>
+    <AuthContext.Provider value={{ user, signIn, signUp, signOut, sendPasswordResetEmail, loading, isAuthenticated: !!user && !loading }}>
       {children}
     </AuthContext.Provider>
   );

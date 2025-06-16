@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { LogInIcon, ShieldAlert, UsersIcon, Pencil } from 'lucide-react';
 import type { User, UserRole } from '@/lib/types';
-import { mockUsers } from '@/lib/data'; 
+import { getAllUsersFromFirestore } from '@/lib/data'; // Changed to fetch from Firestore
 import { nonAdminRoles } from '@/lib/types';
 import {
   Table,
@@ -41,7 +41,7 @@ import { handleUpdateUserDetails } from '@/lib/actions';
 
 const editUserFormSchema = z.object({
   name: z.string().min(2, "Full name must be at least 2 characters.").max(50, "Full name must be 50 characters or less."),
-  role: z.enum(nonAdminRoles).optional(), // Role is optional here as Admins roles are not changed by this form.
+  role: z.enum(nonAdminRoles).optional(),
 });
 type EditUserFormValues = z.infer<typeof editUserFormSchema>;
 
@@ -66,18 +66,28 @@ export default function AdminUsersPage() {
       } else if (adminUser?.role !== 'Admin') {
         setPageLoading(false);
       } else {
-        // Simulate fetching users (in a real app, this would be an API call)
-        setUsers(mockUsers); 
-        setPageLoading(false);
+        const fetchUsers = async () => {
+          setPageLoading(true);
+          try {
+            const firestoreUsers = await getAllUsersFromFirestore();
+            setUsers(firestoreUsers);
+          } catch (err) {
+            console.error("Failed to fetch users from Firestore:", err);
+            toast({ title: "Error", description: "Failed to load users.", variant: "destructive" });
+          } finally {
+            setPageLoading(false);
+          }
+        };
+        fetchUsers();
       }
     }
-  }, [isAuthenticated, authLoading, adminUser, router]);
+  }, [isAuthenticated, authLoading, adminUser, router, toast]);
 
   const openEditDialog = (userToEdit: User) => {
     setEditingUser(userToEdit);
     form.reset({
       name: userToEdit.name,
-      role: userToEdit.role !== 'Admin' ? userToEdit.role : undefined, // only set role if not Admin
+      role: userToEdit.role !== 'Admin' ? userToEdit.role : undefined, 
     });
     setIsEditDialogOpen(true);
   };
@@ -89,7 +99,6 @@ export default function AdminUsersPage() {
       const formData = new FormData();
       formData.append('userId', editingUser.id);
       formData.append('name', values.name);
-      // Only append role if the user is not an admin and role is provided
       if (editingUser.role !== 'Admin' && values.role) {
         formData.append('role', values.role);
       }
@@ -106,7 +115,7 @@ export default function AdminUsersPage() {
       } else {
         toast({
           title: "Update Failed",
-          description: result.message || "An unknown error occurred.",
+          description: result.message || result.errors ? JSON.stringify(result.errors) : "An unknown error occurred.",
           variant: "destructive",
         });
       }
@@ -160,7 +169,7 @@ export default function AdminUsersPage() {
       <Card>
         <CardHeader>
           <CardTitle>Registered Users List</CardTitle>
-          <CardDescription>Overview of all users who have created an account.</CardDescription>
+          <CardDescription>Overview of all users with accounts (from Firestore).</CardDescription>
         </CardHeader>
         <CardContent>
           {users.length > 0 ? (
@@ -205,7 +214,7 @@ export default function AdminUsersPage() {
               </Table>
             </div>
           ) : (
-            <p className="text-muted-foreground text-center py-4">No users found.</p>
+            <p className="text-muted-foreground text-center py-4">No users found in Firestore.</p>
           )}
         </CardContent>
       </Card>
@@ -288,4 +297,3 @@ export default function AdminUsersPage() {
     </div>
   );
 }
-

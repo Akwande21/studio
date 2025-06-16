@@ -17,7 +17,6 @@ export function SignInForm() {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    // Pass both email and password
     await signIn({ email, password }); 
   };
 
@@ -38,6 +37,7 @@ export function SignInForm() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
+              autoComplete="email"
               className="focus-visible:ring-primary"
             />
           </div>
@@ -55,6 +55,7 @@ export function SignInForm() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
+              autoComplete="current-password"
               className="focus-visible:ring-primary"
             />
           </div>
