@@ -3,13 +3,13 @@
 import { suggestRelatedTopics as suggestRelatedTopicsFlow, type SuggestRelatedTopicsInput, type SuggestRelatedTopicsOutput } from '@/ai/flows/suggest-related-topics';
 import { explainConcept as explainConceptFlow, type ExplainConceptInput, type ExplainConceptOutput } from '@/ai/flows/explain-concept-flow'; // Added import
 import { addComment as addMockComment, toggleBookmark as toggleMockBookmark, submitRating as submitMockRating, getPaperById, addUploadedPaper as addMockUploadedPaper, loginUser } from './data';
-import type { Paper, EducationalLevel } from './types'; 
-import { educationalLevels } from './types'; 
+import type { Paper, EducationalLevel } from './types';
+import { educationalLevels } from './types';
 import { z } from 'zod';
 
 export async function handleSuggestRelatedTopics(
   questionText: string,
-  level: EducationalLevel, 
+  level: EducationalLevel,
   subject: string
 ): Promise<SuggestRelatedTopicsOutput> {
   try {
@@ -26,6 +26,7 @@ export async function handleSuggestRelatedTopics(
       topics: [],
       searchQueries: [],
       suitabilityCheckPassed: false,
+      retrievedInformation: undefined, // Ensure all fields are present
     };
   }
 }
@@ -74,55 +75,54 @@ export async function handleToggleBookmark(paperId: string, userId: string) {
 export async function handleSubmitRating(paperId: string, userId: string, value: number) {
   try {
     const rating = await submitMockRating(paperId, userId, value);
-    const updatedPaper = await getPaperById(paperId); 
+    const updatedPaper = await getPaperById(paperId);
     return { success: true, rating, averageRating: updatedPaper?.averageRating, ratingsCount: updatedPaper?.ratingsCount };
   } catch (error) {
     return { success: false, message: (error as Error).message };
   }
 }
 
-const paperUploadSchema = z.object({
-  title: z.string(),
+const paperUploadActionSchema = z.object({
+  title: z.string({ required_error: "Title is required." }).min(1, "Title cannot be empty."),
   description: z.string().optional(),
-  level: z.enum(educationalLevels), 
-  subject: z.string(),
-  year: z.coerce.number(),
-  file: z.custom<FileList>((val) => val instanceof FileList && val.length > 0, "File is required") 
-    .transform(fileList => fileList[0]) 
-    .refine(file => file instanceof File, "Valid file is required"),
+  level: z.enum(educationalLevels, { required_error: "Level is required." }),
+  subject: z.string({ required_error: "Subject is required." }).min(1, "Subject cannot be empty."),
+  year: z.string({ required_error: "Year is required." })
+           .regex(/^\d{4}$/, "Year must be a 4-digit number.")
+           .transform(val => parseInt(val, 10))
+           .pipe(z.number().min(2000, "Year must be 2000 or later.").max(new Date().getFullYear() + 5, `Year cannot be too far in the future.`)),
+  file: z.instanceof(File, { message: "A PDF file is required." })
+    .refine(file => file.name !== "" && file.size > 0, { message: "File cannot be empty." })
+    .refine(file => file.size <= 5 * 1024 * 1024, { message: `File size should be less than 5MB.` })
+    .refine(
+      (file) => ["application/pdf"].includes(file.type),
+      { message: "Only .pdf files are accepted." }
+    ),
 });
 
 
 export async function handlePaperUpload(formData: FormData) {
   try {
-    const rawFormData = {
+    const validatedData = paperUploadActionSchema.safeParse({
       title: formData.get('title'),
-      description: formData.get('description') || undefined,
+      description: formData.get('description') || undefined, // Ensure undefined if null or empty
       level: formData.get('level'),
       subject: formData.get('subject'),
       year: formData.get('year'),
-      file: formData.get('file') instanceof File ? formData.get('file') : undefined,
-    };
-    
-    const fileListSchema = z.object({
-      file: z.custom<FileList>((val) => val instanceof FileList && val.length > 0, "Please select a PDF file.")
-    });
-
-    const validatedData = paperUploadSchema.safeParse({
-      title: formData.get('title'),
-      description: formData.get('description') || undefined,
-      level: formData.get('level'),
-      subject: formData.get('subject'),
-      year: formData.get('year'),
-      file: formData.get('file'), 
+      file: formData.get('file'),
     });
 
 
     if (!validatedData.success) {
       console.error("Validation errors:", validatedData.error.flatten().fieldErrors);
-      return { success: false, message: "Invalid form data.", errors: validatedData.error.flatten().fieldErrors };
+      // You could construct a more specific message from validatedData.error.flatten().fieldErrors
+      const fieldErrors = validatedData.error.flatten().fieldErrors;
+      let errorMessages = "Invalid form data. Please check the following: ";
+      const messages = Object.entries(fieldErrors).map(([key, value]) => `${key}: ${value?.join(', ')}`);
+      errorMessages += messages.join('; ');
+      return { success: false, message: messages.length > 0 ? errorMessages : "Invalid form data.", errors: fieldErrors };
     }
-    
+
     const { title, description, level, subject, year, file } = validatedData.data;
 
     const fileName = file.name.replace(/\s+/g, '_');
@@ -131,7 +131,7 @@ export async function handlePaperUpload(formData: FormData) {
     const newPaperData: Omit<Paper, 'id' | 'averageRating' | 'ratingsCount' | 'questions' | 'isBookmarked'> & { downloadUrl: string } = {
       title,
       description,
-      level, 
+      level,
       subject,
       year,
       downloadUrl: mockDownloadUrl,
@@ -155,19 +155,19 @@ export async function handleForgotPasswordRequest(email: string): Promise<{ succ
   }
   try {
     // We use loginUser to check if the user exists, but we don't log them in.
-    const userExists = await loginUser(email); 
+    const userExists = await loginUser(email);
     // Regardless of whether the user exists, we return a generic message
     // to prevent email enumeration attacks.
-    return { 
-      success: true, 
-      message: "If an account with that email exists, instructions to reset your password have been sent. Please check your inbox (and spam folder)." 
+    return {
+      success: true,
+      message: "If an account with that email exists, instructions to reset your password have been sent. Please check your inbox (and spam folder)."
     };
   } catch (error) {
     console.error("Error in handleForgotPasswordRequest:", error);
     // Still return a generic message in case of an unexpected error during lookup.
-    return { 
+    return {
       success: true, // From the user's perspective, the action was "processed".
-      message: "If an account with that email exists, instructions to reset your password have been sent. Please check your inbox (and spam folder)." 
+      message: "If an account with that email exists, instructions to reset your password have been sent. Please check your inbox (and spam folder)."
     };
   }
 }
@@ -187,7 +187,7 @@ export async function handleResetPassword(newPassword: string): Promise<{ succes
 
   // For this mock, we'll just simulate success.
   console.log(`Mock password reset: New password would be "${newPassword}"`);
-  
+
   // Simulate a short delay
   await new Promise(resolve => setTimeout(resolve, 500));
 
