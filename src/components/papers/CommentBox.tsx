@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useTransition, FormEvent } from 'react';
+import { useState, useTransition, FormEvent, useEffect } from 'react'; // Added useEffect
 import type { Comment as CommentType } from '@/lib/types';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -27,6 +27,11 @@ export function CommentBox({ paperId, initialComments }: CommentBoxProps) {
   const [newComment, setNewComment] = useState('');
   const [isPending, startTransition] = useTransition();
 
+  useEffect(() => {
+    // Update comments if the initialComments prop changes (e.g., due to polling in parent)
+    setComments(initialComments);
+  }, [initialComments]);
+
   const submitCommentLogic = async () => {
     if (!newComment.trim() || !isAuthenticated || !user) {
       toast({
@@ -40,8 +45,15 @@ export function CommentBox({ paperId, initialComments }: CommentBoxProps) {
     startTransition(async () => {
       const result = await handleAddComment(paperId, user.id, newComment.trim());
       if (result.success && result.comment) {
-        // Add new comment to the top of the list (or bottom if you prefer and sort accordingly)
-        setComments(prevComments => [result.comment!, ...prevComments]);
+        // Optimistically add the new comment. 
+        // If polling fetches it again, React keys should prevent duplicates.
+        setComments(prevComments => {
+            // Check if comment already exists by ID to prevent potential duplicates from rapid optimistic update + poll
+            if (prevComments.some(c => c.id === result.comment!.id)) {
+                return prevComments;
+            }
+            return [result.comment!, ...prevComments];
+        });
         setNewComment('');
         toast({ title: "Comment Added", description: "Your comment has been posted." });
       } else {

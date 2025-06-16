@@ -1,3 +1,4 @@
+
 "use client";
 
 import type { Paper, Comment as CommentType } from '@/lib/types';
@@ -17,24 +18,40 @@ interface PaperDetailClientProps {
   paper: Paper;
 }
 
+const POLLING_INTERVAL = 7000; // 7 seconds
+
 export function PaperDetailClient({ paper: initialPaper }: PaperDetailClientProps) {
   const [paper, setPaper] = useState<Paper>(initialPaper);
   const [comments, setComments] = useState<CommentType[]>([]);
   const [isLoadingComments, setIsLoadingComments] = useState(true);
 
   useEffect(() => {
+    let isMounted = true;
     const fetchComments = async () => {
+      if (!isMounted) return;
       setIsLoadingComments(true);
       try {
         const fetchedComments = await getCommentsByPaperId(paper.id);
-        setComments(fetchedComments);
+        if (isMounted) {
+          setComments(fetchedComments);
+        }
       } catch (error) {
         console.error("Failed to fetch comments:", error);
       } finally {
-        setIsLoadingComments(false);
+        if (isMounted) {
+          setIsLoadingComments(false);
+        }
       }
     };
-    fetchComments();
+
+    fetchComments(); // Initial fetch
+
+    const intervalId = setInterval(fetchComments, POLLING_INTERVAL);
+
+    return () => {
+      isMounted = false;
+      clearInterval(intervalId);
+    };
   }, [paper.id]);
 
   const handleRatingSubmitted = (newAverage: number, newCount: number) => {
@@ -108,8 +125,8 @@ export function PaperDetailClient({ paper: initialPaper }: PaperDetailClientProp
               onRatingSubmitted={handleRatingSubmitted}
             />
           </div>
-          <div className="md:col-span-2"> {/* Make comment box full width on larger screens if preferred */}
-             {isLoadingComments ? (
+          <div className="md:col-span-2">
+             {isLoadingComments && comments.length === 0 ? ( // Show skeleton only on initial load or if comments become empty during loading
                 <div>
                   <Skeleton className="h-8 w-1/3 mb-4" />
                   <Skeleton className="h-20 w-full mb-2" />
