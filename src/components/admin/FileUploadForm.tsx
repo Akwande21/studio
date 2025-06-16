@@ -17,12 +17,13 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { educationalLevels, type EducationalLevel } from "@/lib/types"; // Changed import
+import { educationalLevels, type EducationalLevel } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { handlePaperUpload } from "@/lib/actions";
 import { useState, useTransition } from "react";
 import { LoadingSpinner } from "../shared/LoadingSpinner";
 import { UploadCloud } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth"; // Import useAuth
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const ACCEPTED_FILE_TYPES = ["application/pdf"];
@@ -30,7 +31,7 @@ const ACCEPTED_FILE_TYPES = ["application/pdf"];
 const formSchema = z.object({
   title: z.string().min(5, "Title must be at least 5 characters.").max(100),
   description: z.string().min(10, "Description must be at least 10 characters.").max(500).optional(),
-  level: z.enum(educationalLevels, { required_error: "Please select a level." }), // Changed here
+  level: z.enum(educationalLevels, { required_error: "Please select a level." }),
   subject: z.string().min(2, "Subject must be at least 2 characters.").max(50),
   year: z.coerce.number().min(2000, "Year must be 2000 or later.").max(new Date().getFullYear() + 1, `Year cannot be in the far future.`),
   file: z
@@ -45,6 +46,8 @@ const formSchema = z.object({
 export function FileUploadForm() {
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
+  const { user } = useAuth(); // Get current user
+
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -56,6 +59,11 @@ export function FileUploadForm() {
   });
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
+    if (!user) {
+      toast({ title: "Authentication Error", description: "You must be logged in to upload papers.", variant: "destructive" });
+      return;
+    }
+
     startTransition(async () => {
       const formData = new FormData();
       formData.append("title", values.title);
@@ -64,6 +72,7 @@ export function FileUploadForm() {
       formData.append("subject", values.subject);
       formData.append("year", String(values.year));
       formData.append("file", values.file[0]);
+      formData.append("uploaderId", user.id); // Add uploaderId
 
       try {
         const result = await handlePaperUpload(formData);
@@ -76,7 +85,7 @@ export function FileUploadForm() {
         } else {
           toast({
             title: "Upload Failed",
-            description: result.message || "An unknown error occurred.",
+            description: result.message || (result.errors ? JSON.stringify(result.errors) : "An unknown error occurred."),
             variant: "destructive",
           });
         }
@@ -133,7 +142,7 @@ export function FileUploadForm() {
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    {educationalLevels.map(level => ( // Changed here
+                    {educationalLevels.map(level => (
                       <SelectItem key={level} value={level}>{level}</SelectItem>
                     ))}
                   </SelectContent>
@@ -189,7 +198,7 @@ export function FileUploadForm() {
             </FormItem>
           )}
         />
-        <Button type="submit" className="w-full sm:w-auto" disabled={isPending}>
+        <Button type="submit" className="w-full sm:w-auto" disabled={isPending || !user}>
           {isPending ? <LoadingSpinner size={20} className="mr-2" /> : <UploadCloud className="mr-2 h-4 w-4" />}
           Upload Paper
         </Button>
@@ -197,3 +206,4 @@ export function FileUploadForm() {
     </Form>
   );
 }
+

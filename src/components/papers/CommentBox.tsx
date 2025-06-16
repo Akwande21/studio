@@ -1,8 +1,8 @@
 
 "use client";
 
-import { useState, useTransition, FormEvent, useEffect } from 'react'; // Added useEffect
-import type { Comment as CommentType } from '@/lib/types';
+import { useState, useTransition, FormEvent, useEffect } from 'react';
+import type { Comment as CommentTypeFromLib } from '@/lib/types'; // This might have Timestamp type
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -14,21 +14,27 @@ import { Send, MessageCircle } from 'lucide-react';
 import { LoadingSpinner } from '../shared/LoadingSpinner';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
+import { Timestamp } from 'firebase/firestore'; // Import Firestore Timestamp
+
+// Client-side Comment type where Timestamp is a string
+interface CommentClient extends Omit<CommentTypeFromLib, 'timestamp' | 'id'> {
+  id: string; // Ensure ID is always present
+  timestamp: string; // ISO string
+}
 
 interface CommentBoxProps {
   paperId: string;
-  initialComments: CommentType[];
+  initialComments: CommentClient[]; // Expecting comments with string timestamps
 }
 
 export function CommentBox({ paperId, initialComments }: CommentBoxProps) {
   const { user, isAuthenticated } = useAuth();
   const { toast } = useToast();
-  const [comments, setComments] = useState<CommentType[]>(initialComments);
+  const [comments, setComments] = useState<CommentClient[]>(initialComments);
   const [newComment, setNewComment] = useState('');
   const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
-    // Update comments if the initialComments prop changes (e.g., due to polling in parent)
     setComments(initialComments);
   }, [initialComments]);
 
@@ -42,22 +48,42 @@ export function CommentBox({ paperId, initialComments }: CommentBoxProps) {
       return;
     }
 
+    // Optimistic update
+    const optimisticComment: CommentClient = {
+      id: `temp-${Date.now()}`, // Temporary ID
+      paperId,
+      userId: user.id,
+      userName: user.name,
+      userAvatar: user.avatarUrl,
+      userRole: user.role,
+      text: newComment.trim(),
+      timestamp: new Date().toISOString(), // Current time as ISO string
+    };
+    setComments(prevComments => [optimisticComment, ...prevComments]);
+    const oldCommentText = newComment;
+    setNewComment('');
+
     startTransition(async () => {
-      const result = await handleAddComment(paperId, user.id, newComment.trim());
-      if (result.success && result.comment) {
-        // Optimistically add the new comment. 
-        // If polling fetches it again, React keys should prevent duplicates.
-        setComments(prevComments => {
-            // Check if comment already exists by ID to prevent potential duplicates from rapid optimistic update + poll
-            if (prevComments.some(c => c.id === result.comment!.id)) {
-                return prevComments;
-            }
-            return [result.comment!, ...prevComments];
-        });
-        setNewComment('');
-        toast({ title: "Comment Added", description: "Your comment has been posted." });
-      } else {
-        toast({ title: "Error", description: result.message || "Failed to add comment.", variant: "destructive" });
+      try {
+        const result = await handleAddComment(paperId, user.id, oldCommentText.trim());
+        if (result.success && result.comment) {
+          // Server action returns comment with string timestamp
+          // The real-time listener in PaperDetailClient will update the list with the server-confirmed comment.
+          // We can remove the optimistic one if its temp ID is still there, or rely on keys if ID matches.
+          setComments(prev => prev.filter(c => c.id !== optimisticComment.id)); 
+          // The new comment from server will be added by the onSnapshot listener in parent.
+          toast({ title: "Comment Added", description: "Your comment has been posted." });
+        } else {
+          // Revert optimistic update on failure
+          setComments(prev => prev.filter(c => c.id !== optimisticComment.id));
+          setNewComment(oldCommentText); // Restore text
+          toast({ title: "Error", description: result.message || "Failed to add comment.", variant: "destructive" });
+        }
+      } catch (e) {
+         // Revert optimistic update on unexpected error
+        setComments(prev => prev.filter(c => c.id !== optimisticComment.id));
+        setNewComment(oldCommentText);
+        toast({ title: "Error", description: "An unexpected error occurred.", variant: "destructive" });
       }
     });
   };
@@ -171,3 +197,4 @@ export function CommentBox({ paperId, initialComments }: CommentBoxProps) {
     </div>
   );
 }
+

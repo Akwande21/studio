@@ -1,4 +1,6 @@
 
+import type { Timestamp } from "firebase/firestore";
+
 export interface Question {
   id: string;
   text: string;
@@ -17,28 +19,30 @@ export const educationalLevels: EducationalLevel[] = ["High School", "College", 
 
 
 export interface Paper {
-  id: string;
+  id: string; // Firestore document ID
   title: string;
   level: EducationalLevel;
   subject: string;
   year: number;
-  questions: Question[];
+  questions: Question[]; // Stored as an array of objects in Firestore
   averageRating: number;
   ratingsCount: number;
-  isBookmarked?: boolean;
+  isBookmarked?: boolean; // This will be a client-side derived field based on user's bookmarks
   downloadUrl?: string;
   description?: string;
+  uploaderId: string; // UID of the user who uploaded it
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
 }
 
 export interface Comment {
-  id: string;
-  paperId: string;
+  id: string; // Firestore document ID
+  paperId: string; // For denormalization or client-side checks if needed, but primarily fetched via subcollection
   userId: string;
   userName: string;
   userAvatar?: string;
   text: string;
-  timestamp: string; // ISO string
-  parentId?: string;
+  timestamp: Timestamp; // Firestore Timestamp
   userRole?: UserRole;
 }
 
@@ -49,20 +53,22 @@ export interface User {
   role: UserRole;
   avatarUrl?: string;
   dataAiHint?: string; 
+  bookmarkedPaperIds?: string[]; // Array of paper IDs
+  createdAt?: Timestamp;
 }
 
-export interface Rating {
-  paperId: string;
-  userId: string;
+export interface RatingLogEntry {
+  // Stored in papers/{paperId}/ratingsLog/{userId}
+  userId: string; // Document ID in this subcollection is userId
   value: number; // 1-5
-  timestamp: string; // ISO string
+  timestamp: Timestamp;
 }
+
 
 export interface AuthContextType {
   user: User | null;
-  // firebaseUser: FirebaseUser | null; // If we need to expose the raw Firebase user
   signIn: (credentials: { email: string; password?: string }) => Promise<void>; 
-  signUp: (details: { name: string; email: string; password?: string; role: UserRole }) => Promise<void>; // Added password
+  signUp: (details: { name: string; email: string; password?: string; role: UserRole }) => Promise<void>;
   signOut: () => void;
   sendPasswordResetEmail: (email: string) => Promise<void>;
   loading: boolean;
@@ -75,11 +81,13 @@ export interface StudySuggestion {
 }
 
 export interface Suggestion {
-  id: string;
+  id: string; // Firestore document ID
   name?: string;
   email?: string;
   subject: string;
   message: string;
-  timestamp: string; // ISO string
+  timestamp: Timestamp; // Firestore Timestamp
   isRead?: boolean;
+  userId?: string; // UID of user who submitted if logged in
 }
+

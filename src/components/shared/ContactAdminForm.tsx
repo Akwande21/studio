@@ -52,6 +52,9 @@ export function ContactAdminForm() {
     if (isAuthenticated && user) {
       form.setValue("name", user.name || "");
       form.setValue("email", user.email || "");
+    } else {
+      form.setValue("name", ""); // Clear if user logs out
+      form.setValue("email", "");
     }
   }, [isAuthenticated, user, form]);
 
@@ -62,6 +65,9 @@ export function ContactAdminForm() {
       if (values.email) formData.append("email", values.email);
       formData.append("subject", values.subject);
       formData.append("message", values.message);
+      if (isAuthenticated && user) {
+        formData.append("userId", user.id); // Add userId if authenticated
+      }
 
       const result = await handleSendSuggestionToAdmin(formData);
 
@@ -79,7 +85,7 @@ export function ContactAdminForm() {
       } else {
         toast({
           title: "Error Sending Suggestion",
-          description: result.message || "An unknown error occurred.",
+          description: result.message || (result.errors ? JSON.stringify(result.errors) : "An unknown error occurred."),
           variant: "destructive",
         });
       }
@@ -102,9 +108,9 @@ export function ContactAdminForm() {
                 name="name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Your Name (Optional)</FormLabel>
+                    <FormLabel>Your Name {isAuthenticated ? '(Optional)' : ''}</FormLabel>
                     <FormControl>
-                      <Input placeholder="John Doe" {...field} disabled={isPending} />
+                      <Input placeholder="John Doe" {...field} disabled={isPending || (isAuthenticated && !!user?.name)} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -115,9 +121,9 @@ export function ContactAdminForm() {
                 name="email"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Your Email (Optional)</FormLabel>
+                    <FormLabel>Your Email {isAuthenticated ? '(Optional)' : ''}</FormLabel>
                     <FormControl>
-                      <Input type="email" placeholder="you@example.com" {...field} disabled={isPending} />
+                      <Input type="email" placeholder="you@example.com" {...field} disabled={isPending || (isAuthenticated && !!user?.email)} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -168,3 +174,4 @@ export function ContactAdminForm() {
     </Card>
   );
 }
+

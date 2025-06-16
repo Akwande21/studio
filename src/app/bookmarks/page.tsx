@@ -1,23 +1,30 @@
+
 "use client";
 import { useEffect, useState } from 'react';
 import { PaperCard } from '@/components/papers/PaperCard';
-import { getBookmarkedPapers } from '@/lib/data';
-import type { Paper } from '@/lib/types';
+import { getBookmarkedPapersFromFirestore } from '@/lib/data'; // Changed to Firestore
+import type { Paper as PaperTypeFromLib } from '@/lib/types';
 import { useAuth } from '@/hooks/useAuth';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { BookmarkCheck, Frown, LogInIcon } from 'lucide-react';
+import { Timestamp } from 'firebase/firestore';
+
+interface PaperClient extends Omit<PaperTypeFromLib, 'createdAt' | 'updatedAt'> {
+  createdAt: string;
+  updatedAt: string;
+}
 
 export default function BookmarksPage() {
-  const [bookmarkedPapers, setBookmarkedPapers] = useState<Paper[]>([]);
+  const [bookmarkedPapers, setBookmarkedPapers] = useState<PaperClient[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { user, isAuthenticated, loading: authLoading } = useAuth();
 
   useEffect(() => {
-    if (authLoading) return; // Wait for auth state to be determined
+    if (authLoading) return; 
 
     if (!isAuthenticated || !user) {
       setIsLoading(false);
@@ -27,9 +34,14 @@ export default function BookmarksPage() {
     const fetchBookmarks = async () => {
       setIsLoading(true);
       try {
-        // Pass user.id if your mock function needs it. For this example, it's generic.
-        const papers = await getBookmarkedPapers(user.id);
-        setBookmarkedPapers(papers);
+        const papersFromFirestore = await getBookmarkedPapersFromFirestore(user.id);
+        const clientPapers = papersFromFirestore.map(p => ({
+            ...p,
+            isBookmarked: true, // They are bookmarked by definition here
+            createdAt: (p.createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
+            updatedAt: (p.updatedAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
+        }));
+        setBookmarkedPapers(clientPapers);
       } catch (e) {
         setError("Failed to load bookmarked papers.");
         console.error(e);
@@ -41,7 +53,7 @@ export default function BookmarksPage() {
     fetchBookmarks();
   }, [user, isAuthenticated, authLoading]);
 
-  if (authLoading || isLoading) {
+  if (authLoading || (isLoading && bookmarkedPapers.length === 0)) {
     return (
       <div className="container mx-auto py-8 px-4 flex justify-center items-center min-h-[calc(100vh-200px)]">
         <LoadingSpinner size={48} />
@@ -102,3 +114,4 @@ export default function BookmarksPage() {
     </div>
   );
 }
+

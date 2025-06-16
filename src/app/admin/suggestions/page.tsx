@@ -7,38 +7,67 @@ import { LoadingSpinner } from '@/components/shared/LoadingSpinner';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { LogInIcon, ShieldAlert, MessageSquareQuote, UserCircle, Mail, CalendarDays } from 'lucide-react';
-import type { Suggestion } from '@/lib/types';
-import { getMockSuggestions } from '@/lib/data'; 
+import type { Suggestion as SuggestionTypeFromLib } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { formatDistanceToNow } from 'date-fns';
+import { db } from '@/lib/firebaseConfig';
+import { collection, query, orderBy, onSnapshot, Timestamp, DocumentData } from 'firebase/firestore';
+
+interface SuggestionClient extends Omit<SuggestionTypeFromLib, 'timestamp'> {
+  timestamp: string; // ISO string
+}
 
 export default function AdminSuggestionsPage() {
   const { isAuthenticated, loading: authLoading, user: adminUser } = useAuth();
   const router = useRouter();
-  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
-  const [pageLoading, setPageLoading] = useState(true);
+  const [suggestions, setSuggestions] = useState<SuggestionClient[]>([]);
+  const [pageLoading, setPageLoading] = useState(true); // Combined loading state for auth and data
 
   useEffect(() => {
-    if (!authLoading) {
-      if (!isAuthenticated) {
-        router.push('/auth/signin');
-      } else if (adminUser?.role !== 'Admin') {
-        setPageLoading(false); // Not an admin, stop page loading
-      } else {
-        // Fetch suggestions if admin
-        const fetchSuggestions = async () => {
-          const fetchedSuggestions = await getMockSuggestions();
-          setSuggestions(fetchedSuggestions);
-          setPageLoading(false);
-        };
-        fetchSuggestions();
-      }
+    if (authLoading) return;
+
+    if (!isAuthenticated) {
+      router.push('/auth/signin');
+      setPageLoading(false);
+      return;
     }
+    if (adminUser?.role !== 'Admin') {
+      setPageLoading(false); // Not an admin, stop page loading, will show access denied
+      return;
+    }
+
+    // Admin is authenticated, set up real-time listener for suggestions
+    setPageLoading(true); // Start loading suggestions
+    const suggestionsQuery = query(
+      collection(db, "suggestions"),
+      orderBy("timestamp", "desc")
+    );
+
+    const unsubscribe = onSnapshot(suggestionsQuery, (querySnapshot) => {
+      const fetchedSuggestions: SuggestionClient[] = [];
+      querySnapshot.forEach((doc) => {
+        const data = doc.data() as DocumentData;
+        fetchedSuggestions.push({
+          id: doc.id,
+          ...data,
+          timestamp: (data.timestamp as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
+        } as SuggestionClient);
+      });
+      setSuggestions(fetchedSuggestions);
+      setPageLoading(false); // Suggestions loaded
+    }, (error) => {
+      console.error("Error fetching suggestions in real-time: ", error);
+      // Optionally set an error state to display to the user
+      setPageLoading(false);
+    });
+
+    return () => unsubscribe(); // Cleanup listener on unmount
+
   }, [isAuthenticated, authLoading, adminUser, router]);
 
 
-  if (authLoading || pageLoading) {
+  if (authLoading || (pageLoading && suggestions.length === 0 && adminUser?.role === 'Admin') ) { // Show spinner if auth is loading OR page is loading initial data as admin
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <LoadingSpinner size={48} />
@@ -46,7 +75,7 @@ export default function AdminSuggestionsPage() {
     );
   }
 
-  if (!isAuthenticated) {
+  if (!isAuthenticated) { // This case should be handled by the redirect in useEffect, but as a fallback
      return (
       <div className="container mx-auto py-12 px-4 text-center">
         <LogInIcon className="mx-auto h-12 w-12 text-primary mb-4" />
@@ -107,7 +136,8 @@ export default function AdminSuggestionsPage() {
               <CardContent>
                 <p className="text-sm whitespace-pre-wrap">{suggestion.message}</p>
               </CardContent>
-              {/* Add CardFooter for actions like "Mark as Read" if needed in future */}
+              {/* TODO: Add CardFooter for actions like "Mark as Read", "Delete" if needed in future */}
+              {/* These actions would update the Firestore document */}
             </Card>
           ))}
         </div>
@@ -117,7 +147,7 @@ export default function AdminSuggestionsPage() {
                 <MessageSquareQuote className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
                 <h3 className="text-xl font-medium text-foreground">No Suggestions Yet</h3>
                 <p className="mt-2 text-sm text-muted-foreground">
-                    When users submit suggestions, they will appear here.
+                    When users submit suggestions, they will appear here in real-time.
                 </p>
             </CardContent>
         </Card>
@@ -125,3 +155,4 @@ export default function AdminSuggestionsPage() {
     </div>
   );
 }
+

@@ -1,6 +1,7 @@
+
 "use client";
 
-import { useState, useTransition } from 'react';
+import { useState, useTransition, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Bookmark } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
@@ -14,24 +15,39 @@ interface BookmarkButtonProps {
   size?: "sm" | "default" | "lg" | "icon";
   className?: string;
   showText?: boolean;
+  onBookmarkToggled?: (isBookmarked: boolean) => void; // Callback
 }
 
-export function BookmarkButton({ paperId, initialIsBookmarked, size = "icon", className, showText = false }: BookmarkButtonProps) {
-  const { user, isAuthenticated } = useAuth();
+export function BookmarkButton({ 
+  paperId, 
+  initialIsBookmarked, 
+  size = "icon", 
+  className, 
+  showText = false,
+  onBookmarkToggled 
+}: BookmarkButtonProps) {
+  const { user, isAuthenticated, loading: authLoading } = useAuth();
   const { toast } = useToast();
   const [isBookmarked, setIsBookmarked] = useState(initialIsBookmarked);
   const [isPending, startTransition] = useTransition();
 
+  useEffect(() => {
+    setIsBookmarked(initialIsBookmarked);
+  }, [initialIsBookmarked]);
+
   const handleClick = async () => {
-    if (!isAuthenticated || !user) {
+    if (authLoading || !isAuthenticated || !user) {
       toast({ title: "Authentication Required", description: "Please sign in to bookmark papers.", variant: "destructive" });
       return;
     }
 
     startTransition(async () => {
       const result = await handleToggleBookmark(paperId, user.id);
-      if (result.success) {
-        setIsBookmarked(result.isBookmarked!);
+      if (result.success && result.isBookmarked !== undefined) {
+        setIsBookmarked(result.isBookmarked);
+        if (onBookmarkToggled) {
+          onBookmarkToggled(result.isBookmarked);
+        }
         toast({
           title: result.isBookmarked ? "Bookmarked!" : "Bookmark Removed",
           description: `Paper ${result.isBookmarked ? "added to" : "removed from"} your bookmarks.`,
@@ -47,7 +63,7 @@ export function BookmarkButton({ paperId, initialIsBookmarked, size = "icon", cl
       variant="ghost"
       size={size}
       onClick={handleClick}
-      disabled={isPending || !isAuthenticated}
+      disabled={isPending || authLoading || !isAuthenticated}
       aria-pressed={isBookmarked}
       aria-label={isBookmarked ? "Remove bookmark" : "Add bookmark"}
       className={cn("p-2", className)}
@@ -57,3 +73,4 @@ export function BookmarkButton({ paperId, initialIsBookmarked, size = "icon", cl
     </Button>
   );
 }
+
