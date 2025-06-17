@@ -1,8 +1,8 @@
 
-import type { Paper, Comment, User, EducationalLevel, UserRole, RatingLogEntry, Question, Suggestion, Grade } from './types'; // Added Grade
+import type { Paper, Comment, User, EducationalLevel, UserRole, RatingLogEntry, Question, Suggestion, Grade } from './types'; 
 import { db, storage } from './firebaseConfig';
 import { 
-  doc, setDoc, getDoc, updateDoc, collection, getDocs, query, where, orderBy, limit, addDoc, serverTimestamp, deleteDoc, Timestamp, runTransaction, writeBatch, collectionGroup, documentId, FieldValue 
+  doc, setDoc, getDoc, updateDoc, collection, getDocs, query, where, orderBy, limit, addDoc, serverTimestamp, deleteDoc, Timestamp, runTransaction, writeBatch, collectionGroup, documentId, FieldValue, deleteField 
 } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
@@ -12,13 +12,14 @@ const ADMIN_EMAIL = "ndlovunkosy21@gmail.com";
 export const addUserProfileToFirestore = async (userId: string, name: string, email: string, role: UserRole, grade?: Grade): Promise<void> => {
   try {
     const userRef = doc(db, "users", userId);
-    const userData: Partial<User> = { // Use Partial<User> to build up the object
+    const userData: Partial<User> = { 
       name,
       email,
       role,
       avatarUrl: `https://placehold.co/100x100/64B5F6/FFFFFF?text=${name.charAt(0)}`,
       bookmarkedPaperIds: [],
-      createdAt: serverTimestamp() as Timestamp
+      createdAt: serverTimestamp() as Timestamp,
+      updatedAt: serverTimestamp() as Timestamp,
     };
     if (role === "High School" && grade) {
       userData.grade = grade;
@@ -32,6 +33,11 @@ export const addUserProfileToFirestore = async (userId: string, name: string, em
 
 export const getUserProfileFromFirestore = async (userId: string): Promise<User | null> => {
   try {
+    console.log(`[Data:getUserProfileFromFirestore] Attempting to fetch user with ID: '${userId}'`);
+    if (!userId || typeof userId !== 'string' || userId.trim() === '') {
+        console.warn(`[Data:getUserProfileFromFirestore] Invalid or empty userId provided: '${userId}'`);
+        return null;
+    }
     const userRef = doc(db, "users", userId);
     const userSnap = await getDoc(userRef);
     if (userSnap.exists()) {
@@ -41,17 +47,18 @@ export const getUserProfileFromFirestore = async (userId: string): Promise<User 
         name: data.name,
         email: data.email,
         role: data.role,
-        grade: data.grade, // Fetch grade
+        grade: data.grade, 
         avatarUrl: data.avatarUrl,
         bookmarkedPaperIds: data.bookmarkedPaperIds || [],
         createdAt: data.createdAt,
-        updatedAt: data.updatedAt, // Fetch updatedAt
+        updatedAt: data.updatedAt, 
         dataAiHint: 'user avatar'
       } as User;
     }
+    console.warn(`[Data:getUserProfileFromFirestore] No user document found for ID: '${userId}'`);
     return null;
   } catch (error) {
-    console.error("Error fetching user profile from Firestore: ", error);
+    console.error(`[Data:getUserProfileFromFirestore] Error fetching user profile for ID '${userId}': `, error);
     return null;
   }
 };
@@ -61,45 +68,55 @@ export const updateUserProfileInFirestore = async (userId: string, updates: Part
   try {
     const userSnap = await getDoc(userRef);
     if (!userSnap.exists()) {
-      throw new Error("User profile not found in Firestore.");
+      console.error(`[Data:updateUserProfileInFirestore] User profile not found for userId: ${userId} during update attempt.`);
+      throw new Error("User profile not found in Firestore for update.");
     }
     const currentData = userSnap.data() as User;
 
-    const updatePayload: any = { ...updates, updatedAt: serverTimestamp() };
+    const updatePayload: any = { updatedAt: serverTimestamp() };
 
-    if (updates.role && updates.role !== "High School" && currentData.grade) {
-      // If role changes from High School, remove grade
-      updatePayload.grade = deleteDoc; // This is not correct for removing a field. Use 'deleteField()' or set to null/undefined.
-                                      // For simplicity, let's assume we might set it to null or undefined.
-                                      // Firestore's `deleteField()` sentinel is the correct way if using `updateDoc`.
-                                      // Or simply don't include 'grade' in updates if setting to undefined effectively removes it.
-                                      // Let's ensure grade is explicitly set or removed.
-       updatePayload.grade = null; // Or use Firestore.FieldValue.delete() if you import 'firebase/firestore' directly.
-                                   // For modular SDK, it's `deleteField()` from `firebase/firestore`.
-                                   // Given the server action context, setting to null is often simpler.
-    } else if (updates.role === "High School" && updates.grade === undefined && currentData.grade) {
-      // If role is High School but no new grade is provided, keep existing grade (or handle as error in action)
-      // This case might mean grade is intentionally being removed while staying High School, or it was just not passed.
-      // The action should handle this logic. For now, if updates.grade is undefined, it won't be in updatePayload unless explicitly set.
-    } else if (updates.role === "High School" && updates.grade) {
-      updatePayload.grade = updates.grade;
+    if (updates.name && updates.name !== currentData.name) {
+      updatePayload.name = updates.name;
+    }
+    if (updates.role && updates.role !== currentData.role) {
+      updatePayload.role = updates.role;
     }
 
-
-    if (updates.role && updates.role === 'Admin' && currentData.role !== 'Admin') {
-        console.warn("Attempt to promote user to Admin blocked.");
-        delete updatePayload.role; // Don't update role if this condition met
-    }
-    if (updates.role && currentData.role === 'Admin' && updates.role !== 'Admin') {
-        console.warn("Attempt to change Admin role blocked.");
-        delete updatePayload.role; // Don't update role
+    // Handle grade update or removal
+    if (updates.hasOwnProperty('grade')) { // Check if 'grade' was explicitly part of the updates
+        if (updates.grade === undefined || updates.grade === null) {
+            // If grade is explicitly set to undefined or null, remove it
+            if (currentData.grade) { // Only add deleteField if grade actually exists
+                 updatePayload.grade = deleteField();
+            }
+        } else if (updates.grade !== currentData.grade) {
+            updatePayload.grade = updates.grade; // Set new grade
+        }
+    } else if (updates.role && updates.role !== "High School" && currentData.grade) {
+        // If role changed to non-HS, and grade wasn't explicitly in updates, remove grade
+        updatePayload.grade = deleteField();
     }
     
-    await updateDoc(userRef, updatePayload);
+    // Prevent changing Admin role or promoting to Admin through this function
+    if (currentData.role === 'Admin' && updates.role && updates.role !== 'Admin') {
+        console.warn("[Data:updateUserProfileInFirestore] Attempt to change Admin role blocked.");
+        delete updatePayload.role; 
+    }
+    if (updates.role === 'Admin' && currentData.role !== 'Admin') {
+        console.warn("[Data:updateUserProfileInFirestore] Attempt to promote user to Admin blocked.");
+        delete updatePayload.role;
+    }
+
+    if (Object.keys(updatePayload).length > 1) { // more than just updatedAt
+        await updateDoc(userRef, updatePayload);
+    } else {
+        console.log("[Data:updateUserProfileInFirestore] No actual changes to user profile data, skipping updateDoc.");
+    }
+    
     const updatedUser = await getUserProfileFromFirestore(userId);
     return updatedUser;
   } catch (error) {
-    console.error("Error updating user profile in Firestore: ", error);
+    console.error(`[Data:updateUserProfileInFirestore] Error updating user profile for userId '${userId}': `, error);
     throw error;
   }
 };
@@ -117,7 +134,7 @@ export const getAllUsersFromFirestore = async (): Promise<User[]> => {
         name: data.name,
         email: data.email,
         role: data.role,
-        grade: data.grade, // Fetch grade
+        grade: data.grade, 
         avatarUrl: data.avatarUrl,
         bookmarkedPaperIds: data.bookmarkedPaperIds || [],
         createdAt: data.createdAt,
@@ -175,9 +192,6 @@ export const getPapersFromFirestore = async (filters?: { level?: EducationalLeve
   const papersCollectionRef = collection(db, "papers");
   let q = query(papersCollectionRef, orderBy("createdAt", "desc"));
 
-  // Note: Firestore does not support multiple inequality filters on different fields or combining orderBy with range/inequality on different field.
-  // Complex filtering often done client-side or with a search service like Algolia.
-  // For now, direct equality filters.
 
   if (filters) {
     if (filters.level) q = query(q, where("level", "==", filters.level));
@@ -287,7 +301,7 @@ export const getBookmarkedPapersFromFirestore = async (userId: string): Promise<
     const bookmarkedIds = user.bookmarkedPaperIds;
     
     const papers: Paper[] = [];
-    const chunkSize = 30;
+    const chunkSize = 30; // Firestore 'in' query limit is 30
     for (let i = 0; i < bookmarkedIds.length; i += chunkSize) {
         const chunk = bookmarkedIds.slice(i, i + chunkSize);
         if (chunk.length > 0) {
@@ -325,10 +339,10 @@ export const submitRatingToFirestore = async (paperId: string, userId: string, v
       if (ratingLogSnap.exists()) {
         const previousRatingEntry = ratingLogSnap.data() as RatingLogEntry;
         currentTotalRating = currentTotalRating - previousRatingEntry.value + value;
-        newAverageRating = currentRatingsCount > 0 ? currentTotalRating / currentRatingsCount : value;
+        newAverageRating = currentRatingsCount > 0 ? currentTotalRating / currentRatingsCount : value; // No change to count here
       } else {
         currentTotalRating += value;
-        currentRatingsCount += 1;
+        currentRatingsCount += 1; // Count increases only for new raters
         newAverageRating = currentRatingsCount > 0 ? currentTotalRating / currentRatingsCount : value;
       }
       

@@ -11,12 +11,12 @@ import {
   getUserProfileFromFirestore,
   addSuggestionToFirestore,
 } from './data'; 
-import type { Paper, EducationalLevel, UserRole, Suggestion, User, Comment, Grade } from './types'; // Added Grade
-import { educationalLevels, nonAdminRoles, grades } from './types'; // Added grades
+import type { Paper, EducationalLevel, UserRole, Suggestion, User, Comment, Grade } from './types'; 
+import { educationalLevels, nonAdminRoles, grades } from './types'; 
 import { z } from 'zod';
 import { auth } from '@/lib/firebaseConfig';
 import { sendPasswordResetEmail } from 'firebase/auth';
-import { Timestamp, deleteField } from 'firebase/firestore';
+import { Timestamp } from 'firebase/firestore';
 
 
 export async function handleSuggestRelatedTopics(
@@ -109,7 +109,7 @@ const paperUploadActionSchema = z.object({
            .regex(/^\d{4}$/, "Year must be a 4-digit number.")
            .transform(val => parseInt(val, 10))
            .pipe(z.number().min(2000, "Year must be 2000 or later.").max(new Date().getFullYear() + 1, `Year cannot be too far in the future.`)),
-  grade: z.enum(grades).optional(), // Added grade
+  grade: z.enum(grades).optional(), 
   file: z.instanceof(File, { message: "A PDF file is required." })
     .refine(file => file.name !== "" && file.size > 0, { message: "File cannot be empty." })
     .refine(file => file.size <= 5 * 1024 * 1024, { message: `File size should be less than 5MB.` }) 
@@ -142,7 +142,7 @@ export async function handlePaperUpload(formData: FormData) {
       level: formData.get('level'),
       subject: formData.get('subject'),
       year: formData.get('year'),
-      grade: formData.get('grade') || undefined, // Get grade
+      grade: formData.get('grade') || undefined, 
       file: formData.get('file'),
       uploaderId: uploaderId,
     };
@@ -217,40 +217,73 @@ const updateUserSchema = z.object({
 
 export async function handleUpdateUserDetails(formData: FormData) {
   try {
-    const rawData = {
-      userId: formData.get('userId'),
-      name: formData.get('name'),
-      role: formData.get('role') || undefined, 
-      grade: formData.get('grade') || undefined,
+    const rawDataFromForm = {
+      userId: formData.get('userId') as string | null,
+      name: formData.get('name') as string | null,
+      role: formData.get('role') as UserRole | null, // UserRole includes 'Admin', filter later
+      grade: formData.get('grade') as Grade | null,
     };
 
-    const validationResult = updateUserSchema.safeParse(rawData);
+    console.log("[Action:handleUpdateUserDetails] Raw data from FormData:", rawDataFromForm);
+
+    // Prepare data for Zod parsing, ensuring optional fields are undefined if null
+    const dataForZod = {
+      userId: rawDataFromForm.userId || undefined,
+      name: rawDataFromForm.name || undefined,
+      // If role from form is 'Admin', it will be caught by z.enum(nonAdminRoles) if not optional.
+      // Schema's 'role' is z.enum(nonAdminRoles).optional() - so 'Admin' would fail unless it's undefined.
+      // If rawDataFromForm.role is 'Admin', it should be treated as if no role change is requested for this schema.
+      role: nonAdminRoles.includes(rawDataFromForm.role as Exclude<UserRole, "Admin">) ? rawDataFromForm.role as Exclude<UserRole, "Admin"> : undefined,
+      grade: rawDataFromForm.grade || undefined,
+    };
+    
+    const validationResult = updateUserSchema.safeParse(dataForZod);
 
     if (!validationResult.success) {
+      console.error("[Action:handleUpdateUserDetails] Zod validation failed:", validationResult.error.flatten());
       return { success: false, message: "Invalid data provided.", errors: validationResult.error.flatten().fieldErrors };
     }
 
-    const { userId, name, role, grade } = validationResult.data;
+    // Use validated data. `userId` and `name` are guaranteed by schema if validation passed.
+    // `role` and `grade` are optional from the schema's perspective.
+    const { userId, name: validatedName, role: roleFromForm, grade: gradeFromForm } = validationResult.data;
+
+    console.log(`[Action:handleUpdateUserDetails] Validated userId: '${userId}', name: '${validatedName}', role: '${roleFromForm}', grade: '${gradeFromForm}'`);
 
     const userBeingEdited = await getUserProfileFromFirestore(userId);
     if (!userBeingEdited) {
+      console.error(`[Action:handleUpdateUserDetails] User not found in Firestore for userId: ${userId}`);
       return { success: false, message: "User not found." };
     }
 
-    const updates: Partial<Pick<User, 'name' | 'role' | 'grade'>> = { name };
+    const updates: Partial<Pick<User, 'name' | 'role' | 'grade'>> = { name: validatedName };
 
     if (userBeingEdited.role === 'Admin') {
       // Admins cannot change their own role or grade via this form.
+      // Name can be changed if form supported it, but profile page form doesn't.
       console.log("Admin user editing profile. Role/grade change is disallowed for Admin via this form.");
-    } else if (role) {
-      updates.role = role;
-      if (role === "High School" && grade) {
-        updates.grade = grade;
-      } else if (role !== "High School") {
-        // If role is changed to something other than High School, clear the grade.
-        // Firestore specific: use deleteField() to remove field, or set to null.
-        // For simplicity in actions, we can pass null and data.ts can handle it.
-        (updates as any).grade = null; // Or use deleteField() in data.ts
+    } else {
+      // For non-admins:
+      if (roleFromForm) { // If a valid non-admin role was submitted
+        updates.role = roleFromForm;
+        if (roleFromForm === "High School") {
+          if (gradeFromForm) {
+            updates.grade = gradeFromForm;
+          } else {
+            // This case should be caught by client & server Zod superRefine.
+            // If it somehow gets here, it implies an attempt to set HS role without grade.
+            // Keep existing grade or clear it? For now, let schema decide.
+          }
+        } else {
+          // Role changed to College or University, grade should be removed.
+          updates.grade = undefined; // Signal to remove grade field
+        }
+      } else if (userBeingEdited.role === "High School" && gradeFromForm) {
+        // Role was not in form (or not changed), user is HS, and grade is being updated
+        updates.grade = gradeFromForm;
+      } else if (userBeingEdited.role === "High School" && validationResult.data.hasOwnProperty('grade') && gradeFromForm === undefined) {
+         // Role not changed from form, user is HS, and grade is being explicitly cleared
+         updates.grade = undefined; // Signal to remove grade field
       }
     }
     
@@ -336,7 +369,10 @@ export async function handleForgotPasswordRequest(email: string): Promise<{ succ
   } catch (error: any) {
     console.error("Error in handleForgotPasswordRequest (action):", error);
     if (error.code === 'auth/user-not-found') {
-        return { success: false, message: "No user found with this email address."};
+        // To prevent email enumeration, you might want to return the generic success message here too.
+        // However, for easier debugging during development, a specific message can be useful.
+        // return { success: true, message: "If an account with that email exists..." }; // More secure
+        return { success: false, message: "No user found with this email address."}; // More informative for dev
     }
     return {
       success: false,
@@ -345,10 +381,14 @@ export async function handleForgotPasswordRequest(email: string): Promise<{ succ
   }
 }
 
+// This function is a placeholder as Firebase handles actual password reset via a link.
+// It's not directly used by the client if using Firebase's email link flow.
 export async function handleResetPassword(newPassword: string): Promise<{ success: boolean; message: string }> {
   if (newPassword.length < 6) {
     return { success: false, message: "Password must be at least 6 characters." };
   }
+  // This would involve a verification code (oobCode) from the email link.
+  // For now, just simulating success.
   console.log("Simulating password reset with new password:", newPassword);
   return { success: true, message: "Password has been hypothetically reset successfully." };
 }

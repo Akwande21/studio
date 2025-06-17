@@ -6,7 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner';
 import Link from 'next/link';
-import { UserCircle, Edit3, LogInIcon, KeyRound, BookCopy } from 'lucide-react'; // Added BookCopy
+import { UserCircle, Edit3, LogInIcon, KeyRound, BookCopy } from 'lucide-react'; 
 import { useState, useTransition, useEffect } from 'react';
 import {
   Dialog,
@@ -25,7 +25,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useToast } from '@/hooks/use-toast';
 import { handleUpdateUserDetails } from '@/lib/actions';
-import { nonAdminRoles, type UserRole, type Grade, grades } from '@/lib/types'; // Added Grade, grades
+import { nonAdminRoles, type UserRole, type Grade, grades } from '@/lib/types'; 
 
 const editProfileFormSchema = z.object({
   role: z.enum(nonAdminRoles, { required_error: "Please select a role." }),
@@ -52,13 +52,13 @@ export default function ProfilePage() {
   });
 
   useEffect(() => {
-    if (user && isEditDialogOpen) { // Only reset form when dialog opens and user exists
+    if (user && isEditDialogOpen) { 
       form.reset({
         role: user.role !== 'Admin' ? user.role as Exclude<UserRole, "Admin"> : undefined,
         grade: user.role === "High School" ? user.grade : undefined,
       });
     }
-  }, [user, form, isEditDialogOpen]); // Add isEditDialogOpen to dependency array
+  }, [user, form, isEditDialogOpen]); 
 
   if (loading) {
     return (
@@ -87,16 +87,21 @@ export default function ProfilePage() {
     startTransition(async () => {
       const formData = new FormData();
       formData.append('userId', user.id);
-      formData.append('name', user.name); // Name is not changed in this form
+      formData.append('name', user.name); // Name is not changed in this form, but action expects it.
       
-      if (user.role !== 'Admin' && values.role) {
-        formData.append('role', values.role);
+      if (user.role !== 'Admin') {
+        // For non-admins, always send the role from the form (values.role).
+        // This ensures the server action's superRefine can check grade if role is High School.
+        formData.append('role', values.role); 
+        
         if (values.role === "High School" && values.grade) {
           formData.append('grade', values.grade);
-        } else if (values.role !== "High School") {
-           // If role is not High School, ensure grade is cleared (action handles this)
         }
+        // If values.role is not "High School", grade is not appended here.
+        // The server action will handle clearing the grade if the role changes from High School.
       }
+      // If user.role IS 'Admin', 'role' and 'grade' are not appended to formData from here.
+      // The server action's schema has role/grade as optional, and server logic prevents Admin role change.
       
       const result = await handleUpdateUserDetails(formData);
       if (result.success && result.user) {
@@ -157,7 +162,10 @@ export default function ProfilePage() {
       </Card>
 
       {user && (
-        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <Dialog open={isEditDialogOpen} onOpenChange={(isOpen) => {
+            setIsEditDialogOpen(isOpen);
+            if (!isOpen) form.reset(); // Reset form on close
+        }}>
           <DialogContent className="sm:max-w-[425px]">
             <DialogHeader>
               <DialogTitle>Change Your Role / Grade</DialogTitle>
@@ -192,18 +200,20 @@ export default function ProfilePage() {
                         <Controller
                             name="role"
                             control={form.control}
-                            defaultValue={user.role as Exclude<UserRole, "Admin">}
+                            // defaultValue is set by form.reset in useEffect
                             render={({ field }) => (
                                 <Select 
                                 onValueChange={(value) => {
-                                    field.onChange(value);
+                                    field.onChange(value as Exclude<UserRole, "Admin">);
                                     if (value !== "High School") {
-                                        form.setValue("grade", undefined); // Clear grade if not High School
-                                    } else if (user.grade && value === "High School") {
-                                        form.setValue("grade", user.grade); // Pre-fill grade if switching to HS and had one
+                                        form.setValue("grade", undefined, { shouldValidate: true }); 
+                                    } else {
+                                        // If changing TO High School, prefill with current grade if it exists, or leave for user to select
+                                        const currentGradeIfHighSchool = user.role === "High School" ? user.grade : undefined;
+                                        form.setValue("grade", currentGradeIfHighSchool , { shouldValidate: true });
                                     }
                                 }}
-                                value={field.value} 
+                                value={field.value || ""} // Ensure value is not undefined for Select
                                 disabled={isPending || user.role === 'Admin'}
                                 >
                                 <SelectTrigger id="role" className="mt-1">
@@ -229,11 +239,11 @@ export default function ProfilePage() {
                             <Controller
                                 name="grade"
                                 control={form.control}
-                                defaultValue={user.grade}
+                                // defaultValue is set by form.reset in useEffect
                                 render={({ field }) => (
                                     <Select 
                                         onValueChange={field.onChange} 
-                                        value={field.value}
+                                        value={field.value || ""} // Ensure value is not undefined
                                         disabled={isPending}
                                     >
                                     <SelectTrigger id="grade" className="mt-1">
@@ -267,7 +277,7 @@ export default function ProfilePage() {
              
               <DialogFooter>
                 <DialogClose asChild>
-                  <Button type="button" variant="outline" disabled={isPending} onClick={() => form.reset()}>Cancel</Button>
+                  <Button type="button" variant="outline" disabled={isPending} onClick={() => { setIsEditDialogOpen(false); form.reset();}}>Cancel</Button>
                 </DialogClose>
                 <Button type="submit" disabled={isPending || user.role === 'Admin'}>
                   {isPending ? <LoadingSpinner size={16} className="mr-2" /> : <KeyRound className="mr-2 h-4 w-4"/>}
