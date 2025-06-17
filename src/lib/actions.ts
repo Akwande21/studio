@@ -6,9 +6,8 @@ import {
   addCommentToFirestore,
   toggleBookmarkInFirestore,
   submitRatingToFirestore,
-  getPaperByIdFromFirestore,
   addPaperToFirestoreAndStorage,
-  updateUserProfileInFirestore,
+  updateUserProfileInFirestore, // This is the key function for updating user profiles
   getUserProfileFromFirestore,
   addSuggestionToFirestore,
 } from './data'; // Firestore interaction functions
@@ -70,7 +69,6 @@ export async function handleExplainQuestionConcept(
 export async function handleAddComment(paperId: string, userId: string, text: string) {
   try {
     const comment = await addCommentToFirestore(paperId, userId, text);
-    // Convert Firestore Timestamp to string for client serialization if needed, or handle Timestamp object on client
     const serializableComment = {
         ...comment,
         timestamp: comment.timestamp.toDate().toISOString(),
@@ -110,10 +108,10 @@ const paperUploadActionSchema = z.object({
   year: z.string({ required_error: "Year is required." })
            .regex(/^\d{4}$/, "Year must be a 4-digit number.")
            .transform(val => parseInt(val, 10))
-           .pipe(z.number().min(2000, "Year must be 2000 or later.").max(new Date().getFullYear() + 1, `Year cannot be too far in the future.`)), // Aligned max year
+           .pipe(z.number().min(2000, "Year must be 2000 or later.").max(new Date().getFullYear() + 1, `Year cannot be too far in the future.`)),
   file: z.instanceof(File, { message: "A PDF file is required." })
     .refine(file => file.name !== "" && file.size > 0, { message: "File cannot be empty." })
-    .refine(file => file.size <= 5 * 1024 * 1024, { message: `File size should be less than 5MB.` }) // 5MB limit
+    .refine(file => file.size <= 5 * 1024 * 1024, { message: `File size should be less than 5MB.` }) 
     .refine(
       (file) => ["application/pdf"].includes(file.type),
       { message: "Only .pdf files are accepted." }
@@ -140,7 +138,7 @@ export async function handlePaperUpload(formData: FormData) {
     });
 
     if (!validatedData.success) {
-      console.error("Validation errors:", validatedData.error.flatten().fieldErrors);
+      console.error("Server validation errors (handlePaperUpload):", validatedData.error.flatten().fieldErrors);
       const fieldErrors = validatedData.error.flatten().fieldErrors;
       let errorMessages = "Invalid form data. Please check the following: ";
       const messages = Object.entries(fieldErrors).map(([key, value]) => `${key}: ${value?.join(', ')}`);
@@ -166,22 +164,21 @@ export async function handlePaperUpload(formData: FormData) {
     if (error instanceof z.ZodError) {
         return { success: false, message: "Validation failed.", errors: error.flatten().fieldErrors };
     }
-    // Check for Firebase specific error codes
     if (error.code && typeof error.code === 'string') {
         if (error.code.startsWith('storage/')) {
             if (error.code === 'storage/unauthorized') {
-                return { success: false, message: `Storage error: You do not have permission to upload this file. Please check storage rules in Firebase.` };
+                return { success: false, message: `Storage error: You do not have permission to upload this file. Check storage rules.` };
             }
             return { success: false, message: `Storage error: ${error.message}` };
         }
         if (error.code.startsWith('firestore/')) {
              if (error.code === 'firestore/permission-denied') {
-                return { success: false, message: `Database error: You do not have permission to save this paper's data. Please check Firestore rules.` };
+                return { success: false, message: `Database error: You do not have permission to save paper data. Check Firestore rules.` };
             }
              return { success: false, message: `Database error: ${error.message}` };
         }
     }
-    return { success: false, message: "An unexpected error occurred during paper upload. Check server logs for details." };
+    return { success: false, message: "An unexpected error occurred during paper upload." };
   }
 }
 
@@ -189,7 +186,7 @@ export async function handlePaperUpload(formData: FormData) {
 const updateUserSchema = z.object({
   userId: z.string().min(1, "User ID is required."),
   name: z.string().min(2, "Full name must be at least 2 characters.").max(50, "Full name must be 50 characters or less."),
-  role: z.enum(nonAdminRoles).optional(),
+  role: z.enum(nonAdminRoles).optional(), // Role can only be one of the non-admin roles if provided
 });
 
 export async function handleUpdateUserDetails(formData: FormData) {
@@ -197,7 +194,7 @@ export async function handleUpdateUserDetails(formData: FormData) {
     const rawData = {
       userId: formData.get('userId'),
       name: formData.get('name'),
-      role: formData.get('role') || undefined,
+      role: formData.get('role') || undefined, // Ensure undefined if not present
     };
 
     const validationResult = updateUserSchema.safeParse(rawData);
@@ -208,10 +205,25 @@ export async function handleUpdateUserDetails(formData: FormData) {
 
     const { userId, name, role } = validationResult.data;
 
-    const updates: Partial<Pick<User, 'name' | 'role'>> = { name };
-    if (role) {
-        updates.role = role;
+    const userBeingEdited = await getUserProfileFromFirestore(userId);
+    if (!userBeingEdited) {
+      return { success: false, message: "User not found." };
     }
+
+    // Prepare updates, always including name
+    const updates: Partial<Pick<User, 'name' | 'role'>> = { name };
+
+    if (userBeingEdited.role === 'Admin') {
+      // Admins cannot change their own role via this form.
+      // The 'role' field from formData is ignored if the user is an Admin.
+      // Their role remains 'Admin'.
+      console.log("Admin user editing profile. Role change is disallowed for Admin via this form.");
+    } else if (role) {
+      // If a role is provided by the form (and it's a valid non-admin role due to schema validation)
+      // and the user being edited is NOT an Admin, apply the new role.
+      updates.role = role;
+    }
+    // If 'role' is not provided in formData (e.g. admin editing only name), user's role remains unchanged.
 
     const updatedUser = await updateUserProfileInFirestore(userId, updates);
 
@@ -219,6 +231,7 @@ export async function handleUpdateUserDetails(formData: FormData) {
       const serializableUser = {
         ...updatedUser,
         createdAt: updatedUser.createdAt ? updatedUser.createdAt.toDate().toISOString() : undefined,
+        updatedAt: updatedUser.updatedAt ? updatedUser.updatedAt.toDate().toISOString() : undefined,
       };
       return { success: true, user: serializableUser, message: "User details updated successfully." };
     } else {
@@ -238,7 +251,7 @@ const sendSuggestionSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address." }).optional().or(z.literal('')),
   subject: z.string().min(5, "Subject must be at least 5 characters long.").max(100, "Subject must be 100 characters or less."),
   message: z.string().min(10, "Message must be at least 10 characters long.").max(1000, "Message must be 1000 characters or less."),
-  userId: z.string().optional(), // User ID if logged in
+  userId: z.string().optional(), 
 });
 
 export async function handleSendSuggestionToAdmin(formData: FormData) {
@@ -281,7 +294,6 @@ export async function handleSendSuggestionToAdmin(formData: FormData) {
   }
 }
 
-// handleForgotPasswordRequest remains as is, directly using Firebase Auth SDK
 export async function handleForgotPasswordRequest(email: string): Promise<{ success: boolean; message: string }> {
   if (!email || !z.string().email().safeParse(email).success) {
     return { success: false, message: "Please enter a valid email address." };
@@ -294,30 +306,20 @@ export async function handleForgotPasswordRequest(email: string): Promise<{ succ
     };
   } catch (error: any) {
     console.error("Error in handleForgotPasswordRequest (action):", error);
-    // It's often better not to reveal if an email exists for security reasons.
-    // However, Firebase itself might return a specific error.
-    // For this prototype, we can be a bit more direct if needed, or keep it generic.
     if (error.code === 'auth/user-not-found') {
         return { success: false, message: "No user found with this email address."};
     }
     return {
       success: false,
-      message: "Failed to send password reset email. Please try again later." // More generic for security
+      message: "Failed to send password reset email. Please try again later." 
     };
   }
 }
 
-// Placeholder for resetting password, usually handled via Firebase link
 export async function handleResetPassword(newPassword: string): Promise<{ success: boolean; message: string }> {
-  // This function is a placeholder. In a real Firebase app, password reset is handled
-  // by the user clicking a link in an email sent by Firebase, which takes them to a
-  // Firebase-hosted page or requires an oobCode to be passed to `confirmPasswordReset`.
-  // For this prototype, we'll simulate a success.
   if (newPassword.length < 6) {
     return { success: false, message: "Password must be at least 6 characters." };
   }
   console.log("Simulating password reset with new password:", newPassword);
   return { success: true, message: "Password has been hypothetically reset successfully." };
 }
-
-    

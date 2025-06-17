@@ -16,58 +16,61 @@ import { useToast } from '@/hooks/use-toast';
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const ADMIN_EMAIL_CONST = "ndlovunkosy21@gmail.com"; // Define admin email for easier reference
+const ADMIN_EMAIL_CONST = "ndlovunkosy21@gmail.com"; 
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
-      if (firebaseUser) {
-        const userProfile = await getUserProfileFromFirestore(firebaseUser.uid);
-        if (userProfile) {
-          setUser(userProfile);
-        } else {
-          if (firebaseUser.email === ADMIN_EMAIL_CONST) { 
-            try {
-              console.log("Admin user logged in, attempting to ensure Firestore profile exists.");
-              const existingAdminProfile = await getUserProfileFromFirestore(firebaseUser.uid);
-              if (!existingAdminProfile) {
-                await addUserProfileToFirestore(firebaseUser.uid, "Admin User", firebaseUser.email!, "Admin");
-                const newProfile = await getUserProfileFromFirestore(firebaseUser.uid);
-                setUser(newProfile);
-              } else {
-                setUser(existingAdminProfile);
-              }
-            } catch (e) {
-               console.error("Failed to create or fetch Firestore profile for admin:", e);
-               setUser(null); 
-            }
-          } else {
-            console.warn(`User ${firebaseUser.uid} authenticated with Firebase, but no profile found in Firestore.`);
-            setUser(null); 
-          }
-        }
+  const fetchAndSetUser = useCallback(async (firebaseUser: FirebaseUser | null) => {
+    if (firebaseUser) {
+      const userProfile = await getUserProfileFromFirestore(firebaseUser.uid);
+      if (userProfile) {
+        setUser(userProfile);
       } else {
-        setUser(null);
+        // Special handling for admin during initial login if profile is missing
+        if (firebaseUser.email === ADMIN_EMAIL_CONST) {
+          try {
+            console.log("Admin user logged in, attempting to ensure Firestore profile exists.");
+            // Ensure a profile is created if it doesn't exist for the hardcoded admin email
+            await addUserProfileToFirestore(firebaseUser.uid, "Admin User", firebaseUser.email!, "Admin");
+            const newProfile = await getUserProfileFromFirestore(firebaseUser.uid);
+            setUser(newProfile); // Set the newly created or fetched profile
+          } catch (e) {
+            console.error("Failed to create or fetch Firestore profile for admin:", e);
+            setUser(null); // Fallback to no user if profile creation fails
+          }
+        } else {
+          // For non-admin users, if profile doesn't exist, treat as not fully logged in
+          console.warn(`User ${firebaseUser.uid} authenticated with Firebase, but no profile found in Firestore.`);
+          setUser(null); 
+        }
       }
-      setLoading(false);
-    });
-
-    return () => unsubscribe(); 
+    } else {
+      setUser(null);
+    }
+    setLoading(false);
   }, []);
 
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+        fetchAndSetUser(firebaseUser);
+    });
+    return () => unsubscribe();
+  }, [fetchAndSetUser]);
+
   const signIn = useCallback(async (credentials: { email: string; password?: string }) => {
-    let passwordToUse: string | undefined;
+    let passwordToUse: string | undefined = credentials.password;
 
     if (credentials.email === ADMIN_EMAIL_CONST) {
-      passwordToUse = "Nkosy@08"; // Hardcode password for admin
-    } else {
-      passwordToUse = credentials.password; // Use provided password for other users
+      // If it's the admin email, use the hardcoded password for the attempt
+      passwordToUse = "Nkosy@08";
+      if (!credentials.password) { // If user didn't type anything for admin, ensure we use the hardcoded one
+          console.log("Admin login attempt: using hardcoded password.");
+      }
     }
-
+    
     if (!passwordToUse) { 
         toast({ title: "Sign In Failed", description: "Password is required.", variant: "destructive" });
         return;
@@ -91,10 +94,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         errorMessage = error.message;
       }
       toast({ title: "Sign In Failed", description: errorMessage, variant: "destructive" });
-    } finally {
-      // setLoading(false); // onAuthStateChanged handles final loading state
-    }
-  }, [toast]);
+      setLoading(false); // Ensure loading is false on error
+    } 
+    // setLoading(false) is handled by fetchAndSetUser in onAuthStateChanged listener
+  }, [toast, fetchAndSetUser]);
   
   const signUp = useCallback(async (details: { name: string; email: string; password?: string; role: UserRole }) => {
     if (!details.password) {
@@ -120,10 +123,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         errorMessage = error.message;
       }
       toast({ title: "Sign Up Error", description: errorMessage, variant: "destructive" });
-    } finally {
-      // setLoading(false); // onAuthStateChanged handles final loading state
+      setLoading(false); // Ensure loading is false on error
     }
-  }, [toast]);
+  }, [toast, fetchAndSetUser]);
 
   const signOut = useCallback(async () => {
     setLoading(true);
@@ -133,9 +135,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (error: any) {
       toast({ title: "Sign Out Error", description: error.message, variant: "destructive" });
     } finally {
-       // setLoading(false); // onAuthStateChanged handles final loading state
+       // onAuthStateChanged will set user to null and loading to false
     }
-  }, [toast]);
+  }, [toast, fetchAndSetUser]);
 
   const sendPasswordResetEmail = useCallback(async (email: string) => {
     setLoading(true);
@@ -157,9 +159,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [toast]);
 
+  const refreshUserProfile = useCallback(async () => {
+    if (auth.currentUser) {
+      setLoading(true);
+      await fetchAndSetUser(auth.currentUser); // This already sets loading to false
+    }
+  }, [fetchAndSetUser]);
+
 
   return (
-    <AuthContext.Provider value={{ user, signIn, signUp, signOut, sendPasswordResetEmail, loading, isAuthenticated: !!user && !loading }}>
+    <AuthContext.Provider value={{ 
+        user, 
+        signIn, 
+        signUp, 
+        signOut, 
+        sendPasswordResetEmail, 
+        loading, 
+        isAuthenticated: !!user && !loading,
+        refreshUserProfile 
+    }}>
       {children}
     </AuthContext.Provider>
   );

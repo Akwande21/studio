@@ -54,7 +54,8 @@ export interface User {
   avatarUrl?: string;
   dataAiHint?: string; 
   bookmarkedPaperIds?: string[]; // Array of paper IDs
-  createdAt?: Timestamp;
+  createdAt?: Timestamp; // Firestore Timestamp for user creation
+  updatedAt?: Timestamp; // Firestore Timestamp for last profile update
 }
 
 export interface RatingLogEntry {
@@ -73,6 +74,7 @@ export interface AuthContextType {
   sendPasswordResetEmail: (email: string) => Promise<void>;
   loading: boolean;
   isAuthenticated: boolean;
+  refreshUserProfile: () => Promise<void>; // Added to refresh user profile
 }
 
 export interface StudySuggestion {
@@ -90,4 +92,3 @@ export interface Suggestion {
   isRead?: boolean;
   userId?: string; // UID of user who submitted if logged in
 }
-
