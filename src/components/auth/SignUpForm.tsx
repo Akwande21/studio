@@ -7,8 +7,8 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/hooks/useAuth';
-import type { UserRole } from '@/lib/types';
-import { userRoles } from '@/lib/types'; // userRoles includes 'Admin'
+import type { UserRole, Grade } from '@/lib/types'; // Added Grade
+import { userRoles, grades } from '@/lib/types'; // Added grades
 import Link from 'next/link';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner';
 import { UserPlus } from 'lucide-react';
@@ -19,6 +19,7 @@ export function SignUpForm() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [role, setRole] = useState<UserRole | ''>('');
+  const [grade, setGrade] = useState<Grade | ''>(''); // Added grade state
   const { signUp, loading } = useAuth();
   const { toast } = useToast();
 
@@ -28,14 +29,17 @@ export function SignUpForm() {
         toast({title: "Role Required", description: "Please select a role.", variant: "destructive"});
         return;
     }
+    if (role === "High School" && !grade) {
+        toast({title: "Grade Required", description: "Please select your grade for High School.", variant: "destructive"});
+        return;
+    }
     if (!password) {
         toast({title: "Password Required", description: "Please enter a password.", variant: "destructive"});
         return;
     }
-    await signUp({ name, email, password, role });
+    await signUp({ name, email, password, role, grade: role === "High School" ? grade as Grade : undefined });
   };
 
-  // Filter out 'Admin' role for public selection
   const selectableRoles = userRoles.filter(r => r !== 'Admin');
 
   return (
@@ -87,22 +91,41 @@ export function SignUpForm() {
           </div>
           <div className="space-y-2">
             <Label htmlFor="role">I am a...</Label>
-            <Select value={role} onValueChange={(value) => setRole(value as UserRole)} required>
+            <Select value={role} onValueChange={(value) => { setRole(value as UserRole); if (value !== "High School") setGrade(''); }} required>
               <SelectTrigger id="role" className="focus-visible:ring-primary">
                 <SelectValue placeholder="Select your role" />
               </SelectTrigger>
               <SelectContent>
                 {selectableRoles.map((lvl) => (
                   <SelectItem key={lvl} value={lvl}>
-                    {`${lvl} Student`}
+                    {lvl === "High School" ? "High School Student" : `${lvl} Student`}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
+
+          {role === "High School" && (
+            <div className="space-y-2">
+              <Label htmlFor="grade">Grade Level</Label>
+              <Select value={grade} onValueChange={(value) => setGrade(value as Grade)} required>
+                <SelectTrigger id="grade" className="focus-visible:ring-primary">
+                  <SelectValue placeholder="Select your grade" />
+                </SelectTrigger>
+                <SelectContent>
+                  {grades.map((g) => (
+                    <SelectItem key={g} value={g}>
+                      {g}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
         </CardContent>
         <CardFooter className="flex flex-col gap-4">
-          <Button type="submit" className="w-full" disabled={loading || !role}>
+          <Button type="submit" className="w-full" disabled={loading || !role || (role === "High School" && !grade) }>
             {loading ? <LoadingSpinner size={20} className="mr-2"/> : <UserPlus className="mr-2 h-4 w-4" /> }
             Sign Up
           </Button>

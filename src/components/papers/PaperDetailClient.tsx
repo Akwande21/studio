@@ -3,7 +3,7 @@
 
 import type { Paper as PaperTypeWithTimestamp, Comment as CommentTypeWithTimestamp } from '@/lib/types';
 import { useState, useEffect } from 'react';
-import { db } from '@/lib/firebaseConfig'; // Import db for Firestore
+import { db } from '@/lib/firebaseConfig'; 
 import { collection, query, orderBy, onSnapshot, Timestamp, DocumentData } from "firebase/firestore";
 import { QuestionItem } from './QuestionItem';
 import { RatingInput } from './RatingInput';
@@ -11,24 +11,22 @@ import { CommentBox } from './CommentBox';
 import { DownloadPaperButton } from './DownloadPaperButton';
 import { BookmarkButton } from './BookmarkButton';
 import { Badge } from '@/components/ui/badge';
-import { CalendarDays, BookOpen, Users, Star, FileText } from 'lucide-react';
+import { CalendarDays, BookOpen, Users, Star, FileText, GraduationCap } from 'lucide-react'; // Added GraduationCap
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/useAuth';
 
-// Client-side Paper type where Timestamps are strings
 interface PaperClient extends Omit<PaperTypeWithTimestamp, 'createdAt' | 'updatedAt'> {
   createdAt: string;
   updatedAt: string;
 }
-// Client-side Comment type where Timestamp is a string
 interface CommentClient extends Omit<CommentTypeWithTimestamp, 'timestamp'> {
   timestamp: string;
 }
 
 
 interface PaperDetailClientProps {
-  paper: PaperClient; // Initial paper data with serialized timestamps
+  paper: PaperClient; 
 }
 
 export function PaperDetailClient({ paper: initialPaper }: PaperDetailClientProps) {
@@ -48,7 +46,6 @@ export function PaperDetailClient({ paper: initialPaper }: PaperDetailClientProp
   }, [user, paper.id]);
 
   useEffect(() => {
-    // Update local paper state if initialPaper prop changes (e.g. from server)
     setPaper(initialPaper);
   }, [initialPaper]);
   
@@ -77,7 +74,7 @@ export function PaperDetailClient({ paper: initialPaper }: PaperDetailClientProp
       setIsLoadingComments(false);
     });
 
-    return () => unsubscribe(); // Cleanup listener on unmount
+    return () => unsubscribe(); 
   }, [paper.id]);
 
   const handleRatingSubmitted = (newAverage: number, newCount: number) => {
@@ -86,7 +83,6 @@ export function PaperDetailClient({ paper: initialPaper }: PaperDetailClientProp
 
   const handleBookmarkToggled = (newBookmarkStatus: boolean) => {
     setIsBookmarkedClient(newBookmarkStatus);
-     // Optionally update user context or re-fetch user if needed, but action handles DB
   };
 
   return (
@@ -101,7 +97,7 @@ export function PaperDetailClient({ paper: initialPaper }: PaperDetailClientProp
                 paperId={paper.id} 
                 initialIsBookmarked={isBookmarkedClient} 
                 size="lg" 
-                onBookmarkToggled={handleBookmarkToggled} // Pass callback
+                onBookmarkToggled={handleBookmarkToggled} 
             />
           </div>
           {paper.description && <p className="text-lg text-muted-foreground mb-4">{paper.description}</p>}
@@ -115,6 +111,12 @@ export function PaperDetailClient({ paper: initialPaper }: PaperDetailClientProp
               <Users className="h-5 w-5 text-accent" />
               <Badge variant="secondary">{paper.level}</Badge>
             </div>
+            {paper.level === "High School" && paper.grade && (
+              <div className="flex items-center gap-2">
+                <GraduationCap className="h-5 w-5 text-accent" />
+                <Badge variant="outline" className="border-accent/50 text-accent">{paper.grade}</Badge>
+              </div>
+            )}
             <div className="flex items-center gap-2">
               <CalendarDays className="h-5 w-5 text-accent" />
               <span>{paper.year}</span>
@@ -134,7 +136,7 @@ export function PaperDetailClient({ paper: initialPaper }: PaperDetailClientProp
             <FileText className="mr-2 h-6 w-6 text-primary" />
             Questions
           </h2>
-          {paper.questions && paper.questions.length > 0 ? ( // Check if questions exist
+          {paper.questions && paper.questions.length > 0 ? ( 
             paper.questions.map((q, index) => (
               <QuestionItem 
                 key={q.id} 
@@ -177,4 +179,3 @@ export function PaperDetailClient({ paper: initialPaper }: PaperDetailClientProp
     </div>
   );
 }
-

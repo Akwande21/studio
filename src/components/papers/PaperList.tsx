@@ -2,10 +2,10 @@
 "use client";
 
 import { useEffect, useState, useCallback } from 'react';
-import type { Paper, EducationalLevel, UserRole } from '@/lib/types';
+import type { Paper, EducationalLevel, UserRole, Grade } from '@/lib/types'; // Added Grade
 import { PaperCard } from './PaperCard';
 import { PaperFilters } from './PaperFilters';
-import { getPapersFromFirestore } from '@/lib/data'; // Changed to Firestore
+import { getPapersFromFirestore } from '@/lib/data'; 
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Frown } from 'lucide-react';
@@ -13,18 +13,16 @@ import { useAuth } from '@/hooks/useAuth';
 
 export function PaperList() {
   const { user } = useAuth();
-  const [allPapers, setAllPapers] = useState<Paper[]>([]); // Stores all papers fetched initially
-  const [filteredPapers, setFilteredPapers] = useState<Paper[]>([]); // Papers to display after filtering
+  const [allPapers, setAllPapers] = useState<Paper[]>([]); 
+  const [filteredPapers, setFilteredPapers] = useState<Paper[]>([]); 
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
-  const [activeUiFilters, setActiveUiFilters] = useState<{ level?: EducationalLevel; subject?: string; year?: number; query?: string }>({});
+  const [activeUiFilters, setActiveUiFilters] = useState<{ level?: EducationalLevel; subject?: string; year?: number; grade?: Grade; query?: string }>({});
   
-  // Available subjects and years for filters, derived from *all* papers, not just role-filtered ones
   const [availableSubjectsAll, setAvailableSubjectsAll] = useState<string[]>([]);
   const [availableYearsAll, setAvailableYearsAll] = useState<number[]>([]);
 
-  // Available subjects and years for UI filters, derived from *role-filtered* papers if applicable
   const [uiFilterOptions, setUiFilterOptions] = useState<{subjects: string[], years: number[]}>({subjects: [], years: []});
 
 
@@ -33,14 +31,15 @@ export function PaperList() {
       setIsLoading(true);
       setError(null);
       try {
-        const papersData = await getPapersFromFirestore(); // Fetch all papers initially
+        // Fetch all papers initially. Grade filtering for user context will happen client-side.
+        const papersData = await getPapersFromFirestore(); 
         setAllPapers(papersData);
-        // Set initial available filters based on all papers
+        
         const uniqueSubjects = Array.from(new Set(papersData.map(p => p.subject))).sort();
         const uniqueYears = Array.from(new Set(papersData.map(p => p.year))).sort((a, b) => b - a);
         setAvailableSubjectsAll(uniqueSubjects);
         setAvailableYearsAll(uniqueYears);
-        setUiFilterOptions({subjects: uniqueSubjects, years: uniqueYears}); // Default to all
+        setUiFilterOptions({subjects: uniqueSubjects, years: uniqueYears}); 
       } catch (e) {
         setError("Failed to load papers. Please try again later.");
         console.error(e);
@@ -58,21 +57,32 @@ export function PaperList() {
     let currentAvailableSubjects = [...availableSubjectsAll];
     let currentAvailableYears = [...availableYearsAll];
 
-    // If user has a specific educational role, pre-filter papers for them
-    // and also adjust the available filter options (subjects, years)
-    if (user && (user.role === "High School" || user.role === "College" || user.role === "University")) {
-      const userEducationalLevel = user.role as EducationalLevel;
-      basePapersForFiltering = allPapers.filter(p => p.level === userEducationalLevel);
-      
-      // Update UI filter options based on this role-filtered subset
-      currentAvailableSubjects = Array.from(new Set(basePapersForFiltering.map(p => p.subject))).sort();
-      currentAvailableYears = Array.from(new Set(basePapersForFiltering.map(p => p.year))).sort((a, b) => b - a);
+    // 1. User-contextual pre-filtering (if applicable)
+    if (user && user.role === "High School" && user.grade) {
+        // If UI filters are not set for level or grade, apply user's context
+        if (!activeUiFilters.level && !activeUiFilters.grade) {
+            basePapersForFiltering = basePapersForFiltering.filter(p => p.level === "High School" && p.grade === user.grade);
+        }
+    } else if (user && (user.role === "College" || user.role === "University")) {
+        if (!activeUiFilters.level) { // Only apply if level filter not explicitly set
+             basePapersForFiltering = basePapersForFiltering.filter(p => p.level === user.role);
+        }
     }
+
+    // 2. Update UI filter options based on the potentially pre-filtered set (or all if no user context filter applied)
+    // This logic might need refinement if user context filter and UI filter interact in complex ways.
+    // For now, let's keep UI options based on the *broader* set initially determined by role, or all papers.
+    let papersForUiOptions = [...allPapers];
+    if (user && (user.role === "High School" || user.role === "College" || user.role === "University")) {
+      papersForUiOptions = allPapers.filter(p => p.level === user.role || (user.role === "High School" && p.level === "High School")); // Ensure options are relevant
+    }
+    currentAvailableSubjects = Array.from(new Set(papersForUiOptions.map(p => p.subject))).sort();
+    currentAvailableYears = Array.from(new Set(papersForUiOptions.map(p => p.year))).sort((a, b) => b - a);
     setUiFilterOptions({subjects: currentAvailableSubjects, years: currentAvailableYears});
     
+    // 3. Apply UI selected filters to the basePapersForFiltering
     let tempPapers = [...basePapersForFiltering];
 
-    // Apply UI selected filters
     if (activeUiFilters.query) {
       const queryLower = activeUiFilters.query.toLowerCase();
       tempPapers = tempPapers.filter(p => 
@@ -81,9 +91,17 @@ export function PaperList() {
       );
     }
     if (activeUiFilters.level) {
-      // If user has a role, this filter might be redundant or further restrict
       tempPapers = tempPapers.filter(p => p.level === activeUiFilters.level);
+      if (activeUiFilters.level === "High School" && activeUiFilters.grade) {
+        tempPapers = tempPapers.filter(p => p.grade === activeUiFilters.grade);
+      }
+    } else if (user && user.role === "High School" && user.grade && !activeUiFilters.grade) {
+        // If user is HS with grade, and no level filter is set, but also no UI grade filter is set,
+        // it means we use the user's grade from the initial basePapersForFiltering.
+        // This case is covered by the initial basePapersForFiltering setup.
     }
+
+
     if (activeUiFilters.subject) {
       tempPapers = tempPapers.filter(p => p.subject === activeUiFilters.subject);
     }
@@ -91,7 +109,6 @@ export function PaperList() {
       tempPapers = tempPapers.filter(p => p.year === activeUiFilters.year);
     }
     
-    // Add user's bookmark status to each paper
     const papersWithBookmarks = tempPapers.map(p => ({
       ...p,
       isBookmarked: user?.bookmarkedPaperIds?.includes(p.id) ?? false,
@@ -157,4 +174,3 @@ export function PaperList() {
     </div>
   );
 }
-

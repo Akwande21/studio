@@ -2,7 +2,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form"; // Added Controller
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import {
@@ -17,13 +17,13 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { educationalLevels, type EducationalLevel } from "@/lib/types";
+import { educationalLevels, type EducationalLevel, grades, type Grade } from "@/lib/types"; // Added grades, Grade
 import { useToast } from "@/hooks/use-toast";
 import { handlePaperUpload } from "@/lib/actions";
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect } from "react";
 import { LoadingSpinner } from "../shared/LoadingSpinner";
 import { UploadCloud } from "lucide-react";
-import { useAuth } from "@/hooks/useAuth"; // Import useAuth
+import { useAuth } from "@/hooks/useAuth";
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const ACCEPTED_FILE_TYPES = ["application/pdf"];
@@ -34,6 +34,7 @@ const formSchema = z.object({
   level: z.enum(educationalLevels, { required_error: "Please select a level." }),
   subject: z.string().min(2, "Subject must be at least 2 characters.").max(50),
   year: z.coerce.number().min(2000, "Year must be 2000 or later.").max(new Date().getFullYear() + 1, `Year cannot be in the far future.`),
+  grade: z.enum(grades).optional(), // Added grade
   file: z
     .custom<FileList>((val) => val instanceof FileList && val.length > 0, "Please select a PDF file.")
     .refine((files) => files?.[0]?.size <= MAX_FILE_SIZE, `File size should be less than 5MB.`)
@@ -41,12 +42,20 @@ const formSchema = z.object({
       (files) => ACCEPTED_FILE_TYPES.includes(files?.[0]?.type),
       "Only .pdf files are accepted."
     ),
+}).superRefine((data, ctx) => {
+  if (data.level === "High School" && !data.grade) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Grade is required if level is High School.",
+      path: ["grade"],
+    });
+  }
 });
 
 export function FileUploadForm() {
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
-  const { user } = useAuth(); // Get current user
+  const { user } = useAuth(); 
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -55,8 +64,11 @@ export function FileUploadForm() {
       description: "",
       subject: "",
       year: new Date().getFullYear(),
+      grade: undefined,
     },
   });
+
+  const selectedLevel = form.watch("level");
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     if (!user) {
@@ -71,8 +83,11 @@ export function FileUploadForm() {
       formData.append("level", values.level);
       formData.append("subject", values.subject);
       formData.append("year", String(values.year));
+      if (values.level === "High School" && values.grade) {
+        formData.append("grade", values.grade);
+      }
       formData.append("file", values.file[0]);
-      formData.append("uploaderId", user.id); // Add uploaderId
+      formData.append("uploaderId", user.id); 
 
       try {
         const result = await handlePaperUpload(formData);
@@ -132,14 +147,22 @@ export function FileUploadForm() {
             </FormItem>
           )}
         />
-        <div className="grid md:grid-cols-3 gap-6">
+        <div className="grid md:grid-cols-2 gap-6">
           <FormField
             control={form.control}
             name="level"
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Level</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <Select 
+                  onValueChange={(value) => {
+                    field.onChange(value);
+                    if (value !== "High School") {
+                      form.setValue("grade", undefined); // Clear grade if not High School
+                    }
+                  }} 
+                  defaultValue={field.value}
+                >
                   <FormControl>
                     <SelectTrigger>
                       <SelectValue placeholder="Select education level" />
@@ -155,32 +178,58 @@ export function FileUploadForm() {
               </FormItem>
             )}
           />
-          <FormField
-            control={form.control}
-            name="subject"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Subject</FormLabel>
-                <FormControl>
-                  <Input placeholder="e.g., Mathematics" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="year"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Year</FormLabel>
-                <FormControl>
-                  <Input type="number" placeholder="e.g., 2024" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+          {selectedLevel === "High School" && (
+            <FormField
+              control={form.control}
+              name="grade"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Grade</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select grade" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {grades.map(g => (
+                        <SelectItem key={g} value={g}>{g}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          )}
+        </div>
+         <div className="grid md:grid-cols-2 gap-6">
+            <FormField
+                control={form.control}
+                name="subject"
+                render={({ field }) => (
+                <FormItem>
+                    <FormLabel>Subject</FormLabel>
+                    <FormControl>
+                    <Input placeholder="e.g., Mathematics" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                </FormItem>
+                )}
+            />
+            <FormField
+                control={form.control}
+                name="year"
+                render={({ field }) => (
+                <FormItem>
+                    <FormLabel>Year</FormLabel>
+                    <FormControl>
+                    <Input type="number" placeholder="e.g., 2024" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                </FormItem>
+                )}
+            />
         </div>
         <FormField
           control={form.control}

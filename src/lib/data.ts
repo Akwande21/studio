@@ -1,25 +1,29 @@
 
-import type { Paper, Comment, User, EducationalLevel, UserRole, RatingLogEntry, Question, Suggestion } from './types';
+import type { Paper, Comment, User, EducationalLevel, UserRole, RatingLogEntry, Question, Suggestion, Grade } from './types'; // Added Grade
 import { db, storage } from './firebaseConfig';
 import { 
-  doc, setDoc, getDoc, updateDoc, collection, getDocs, query, where, orderBy, limit, addDoc, serverTimestamp, deleteDoc, Timestamp, runTransaction, writeBatch, collectionGroup, documentId 
+  doc, setDoc, getDoc, updateDoc, collection, getDocs, query, where, orderBy, limit, addDoc, serverTimestamp, deleteDoc, Timestamp, runTransaction, writeBatch, collectionGroup, documentId, FieldValue 
 } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
-const ADMIN_EMAIL = "ndlovunkosy21@gmail.com"; // Used for initial role setup
+const ADMIN_EMAIL = "ndlovunkosy21@gmail.com"; 
 
 // --- User Profile Management (Firestore) ---
-export const addUserProfileToFirestore = async (userId: string, name: string, email: string, role: UserRole): Promise<void> => {
+export const addUserProfileToFirestore = async (userId: string, name: string, email: string, role: UserRole, grade?: Grade): Promise<void> => {
   try {
     const userRef = doc(db, "users", userId);
-    await setDoc(userRef, {
+    const userData: Partial<User> = { // Use Partial<User> to build up the object
       name,
       email,
       role,
       avatarUrl: `https://placehold.co/100x100/64B5F6/FFFFFF?text=${name.charAt(0)}`,
       bookmarkedPaperIds: [],
-      createdAt: serverTimestamp()
-    }, { merge: true }); // Merge true to avoid overwriting if doc somehow exists partially
+      createdAt: serverTimestamp() as Timestamp
+    };
+    if (role === "High School" && grade) {
+      userData.grade = grade;
+    }
+    await setDoc(userRef, userData, { merge: true });
   } catch (error) {
     console.error("Error adding user profile to Firestore: ", error);
     throw error;
@@ -37,9 +41,11 @@ export const getUserProfileFromFirestore = async (userId: string): Promise<User 
         name: data.name,
         email: data.email,
         role: data.role,
+        grade: data.grade, // Fetch grade
         avatarUrl: data.avatarUrl,
         bookmarkedPaperIds: data.bookmarkedPaperIds || [],
         createdAt: data.createdAt,
+        updatedAt: data.updatedAt, // Fetch updatedAt
         dataAiHint: 'user avatar'
       } as User;
     }
@@ -50,7 +56,7 @@ export const getUserProfileFromFirestore = async (userId: string): Promise<User 
   }
 };
 
-export const updateUserProfileInFirestore = async (userId: string, updates: Partial<Pick<User, 'name' | 'role'>>): Promise<User | null> => {
+export const updateUserProfileInFirestore = async (userId: string, updates: Partial<Pick<User, 'name' | 'role' | 'grade'>>): Promise<User | null> => {
   const userRef = doc(db, "users", userId);
   try {
     const userSnap = await getDoc(userRef);
@@ -59,17 +65,38 @@ export const updateUserProfileInFirestore = async (userId: string, updates: Part
     }
     const currentData = userSnap.data() as User;
 
+    const updatePayload: any = { ...updates, updatedAt: serverTimestamp() };
+
+    if (updates.role && updates.role !== "High School" && currentData.grade) {
+      // If role changes from High School, remove grade
+      updatePayload.grade = deleteDoc; // This is not correct for removing a field. Use 'deleteField()' or set to null/undefined.
+                                      // For simplicity, let's assume we might set it to null or undefined.
+                                      // Firestore's `deleteField()` sentinel is the correct way if using `updateDoc`.
+                                      // Or simply don't include 'grade' in updates if setting to undefined effectively removes it.
+                                      // Let's ensure grade is explicitly set or removed.
+       updatePayload.grade = null; // Or use Firestore.FieldValue.delete() if you import 'firebase/firestore' directly.
+                                   // For modular SDK, it's `deleteField()` from `firebase/firestore`.
+                                   // Given the server action context, setting to null is often simpler.
+    } else if (updates.role === "High School" && updates.grade === undefined && currentData.grade) {
+      // If role is High School but no new grade is provided, keep existing grade (or handle as error in action)
+      // This case might mean grade is intentionally being removed while staying High School, or it was just not passed.
+      // The action should handle this logic. For now, if updates.grade is undefined, it won't be in updatePayload unless explicitly set.
+    } else if (updates.role === "High School" && updates.grade) {
+      updatePayload.grade = updates.grade;
+    }
+
+
     if (updates.role && updates.role === 'Admin' && currentData.role !== 'Admin') {
         console.warn("Attempt to promote user to Admin blocked.");
-        delete updates.role;
+        delete updatePayload.role; // Don't update role if this condition met
     }
     if (updates.role && currentData.role === 'Admin' && updates.role !== 'Admin') {
         console.warn("Attempt to change Admin role blocked.");
-        delete updates.role;
+        delete updatePayload.role; // Don't update role
     }
     
-    await updateDoc(userRef, { ...updates, updatedAt: serverTimestamp() });
-    const updatedUser = await getUserProfileFromFirestore(userId); // Re-fetch to get complete data
+    await updateDoc(userRef, updatePayload);
+    const updatedUser = await getUserProfileFromFirestore(userId);
     return updatedUser;
   } catch (error) {
     console.error("Error updating user profile in Firestore: ", error);
@@ -90,9 +117,11 @@ export const getAllUsersFromFirestore = async (): Promise<User[]> => {
         name: data.name,
         email: data.email,
         role: data.role,
+        grade: data.grade, // Fetch grade
         avatarUrl: data.avatarUrl,
         bookmarkedPaperIds: data.bookmarkedPaperIds || [],
         createdAt: data.createdAt,
+        updatedAt: data.updatedAt,
         dataAiHint: 'user avatar'
       } as User);
     });
@@ -105,31 +134,33 @@ export const getAllUsersFromFirestore = async (): Promise<User[]> => {
 
 // --- Paper Management (Firestore & Storage) ---
 export const addPaperToFirestoreAndStorage = async (
-  paperData: Omit<Paper, 'id' | 'averageRating' | 'ratingsCount' | 'questions' | 'downloadUrl' | 'createdAt' | 'updatedAt'>,
+  paperData: Omit<Paper, 'id' | 'averageRating' | 'ratingsCount' | 'questions' | 'downloadUrl' | 'createdAt' | 'updatedAt'> & { grade?: Grade },
   file: File,
   uploaderId: string
 ): Promise<Paper> => {
   try {
-    // 1. Upload file to Firebase Storage
     const filePath = `papers/${uploaderId}/${Date.now()}_${file.name.replace(/\s+/g, '_')}`;
     const storageRef = ref(storage, filePath);
     await uploadBytes(storageRef, file);
     const downloadUrl = await getDownloadURL(storageRef);
 
-    // 2. Add paper metadata to Firestore
     const papersCollectionRef = collection(db, "papers");
-    const newPaperRef = doc(papersCollectionRef); // Auto-generate ID
+    const newPaperRef = doc(papersCollectionRef); 
     
     const newPaperData: Omit<Paper, 'id'> = {
       ...paperData,
       downloadUrl,
       uploaderId,
-      questions: [], // Initialize with empty questions
+      questions: paperData.questions || [], 
       averageRating: 0,
       ratingsCount: 0,
       createdAt: serverTimestamp() as Timestamp,
       updatedAt: serverTimestamp() as Timestamp,
     };
+    if (paperData.level === "High School" && paperData.grade) {
+      newPaperData.grade = paperData.grade;
+    }
+
 
     await setDoc(newPaperRef, newPaperData);
 
@@ -140,16 +171,21 @@ export const addPaperToFirestoreAndStorage = async (
   }
 };
 
-export const getPapersFromFirestore = async (filters?: { level?: EducationalLevel, subject?: string, year?: number, query?: string }): Promise<Paper[]> => {
+export const getPapersFromFirestore = async (filters?: { level?: EducationalLevel, subject?: string, year?: number, grade?: Grade, query?: string }): Promise<Paper[]> => {
   const papersCollectionRef = collection(db, "papers");
   let q = query(papersCollectionRef, orderBy("createdAt", "desc"));
 
+  // Note: Firestore does not support multiple inequality filters on different fields or combining orderBy with range/inequality on different field.
+  // Complex filtering often done client-side or with a search service like Algolia.
+  // For now, direct equality filters.
+
   if (filters) {
     if (filters.level) q = query(q, where("level", "==", filters.level));
-    if (filters.subject) q = query(q, where("subject", "==", filters.subject)); // Exact match for subject for now
+    if (filters.subject) q = query(q, where("subject", "==", filters.subject));
     if (filters.year) q = query(q, where("year", "==", filters.year));
-    // Query text search is complex with Firestore, usually requires a third-party service like Algolia or basic includes.
-    // For now, we'll fetch all and filter client-side if query is present, or use a startsWith for title.
+    if (filters.level === "High School" && filters.grade) {
+      q = query(q, where("grade", "==", filters.grade));
+    }
   }
 
   try {
@@ -186,14 +222,13 @@ export const getPaperByIdFromFirestore = async (id: string): Promise<Paper | nul
 
 
 // --- Comment Management (Firestore) ---
-// Fetching comments is done via real-time listener in PaperDetailClient.tsx
 export const addCommentToFirestore = async (paperId: string, userId: string, text: string): Promise<Comment> => {
   try {
     const user = await getUserProfileFromFirestore(userId);
     if (!user) throw new Error("User not found for adding comment");
 
     const commentsCollectionRef = collection(db, `papers/${paperId}/comments`);
-    const newCommentRef = doc(commentsCollectionRef); // Auto-generate ID
+    const newCommentRef = doc(commentsCollectionRef); 
 
     const newCommentData: Omit<Comment, 'id' | 'paperId'> = {
       userId,
@@ -205,13 +240,11 @@ export const addCommentToFirestore = async (paperId: string, userId: string, tex
     };
     await setDoc(newCommentRef, newCommentData);
     
-    // For immediate feedback, construct the comment with potentially client-side timestamp
-    // The real-time listener will soon pick up the server-confirmed one.
     return { 
         id: newCommentRef.id, 
-        paperId, // Include for optimistic updates or context
+        paperId, 
         ...newCommentData, 
-        timestamp: Timestamp.now() // Use client-side now for optimistic update
+        timestamp: Timestamp.now() 
     } as Comment;
 
   } catch (error) {
@@ -237,7 +270,7 @@ export const toggleBookmarkInFirestore = async (paperId: string, userId: string)
     } else {
       bookmarkedPaperIds.push(paperId);
     }
-    await updateDoc(userRef, { bookmarkedPaperIds });
+    await updateDoc(userRef, { bookmarkedPaperIds, updatedAt: serverTimestamp() });
     return !isCurrentlyBookmarked;
   } catch (error) {
     console.error("Error toggling bookmark in Firestore: ", error);
@@ -253,7 +286,6 @@ export const getBookmarkedPapersFromFirestore = async (userId: string): Promise<
     }
     const bookmarkedIds = user.bookmarkedPaperIds;
     
-    // Firestore 'in' query is limited to 30 items per query. If more, chunk it.
     const papers: Paper[] = [];
     const chunkSize = 30;
     for (let i = 0; i < bookmarkedIds.length; i += chunkSize) {
@@ -291,12 +323,10 @@ export const submitRatingToFirestore = async (paperId: string, userId: string, v
       let newAverageRating = paperData.averageRating;
 
       if (ratingLogSnap.exists()) {
-        // User is updating their rating
         const previousRatingEntry = ratingLogSnap.data() as RatingLogEntry;
         currentTotalRating = currentTotalRating - previousRatingEntry.value + value;
         newAverageRating = currentRatingsCount > 0 ? currentTotalRating / currentRatingsCount : value;
       } else {
-        // New rating
         currentTotalRating += value;
         currentRatingsCount += 1;
         newAverageRating = currentRatingsCount > 0 ? currentTotalRating / currentRatingsCount : value;
@@ -319,13 +349,12 @@ export const submitRatingToFirestore = async (paperId: string, userId: string, v
 
 
 // --- Suggestion Management (Firestore) ---
-// Fetching suggestions is done via real-time listener in AdminSuggestionsPage.tsx
 export const addSuggestionToFirestore = async (
   suggestionData: Omit<Suggestion, 'id' | 'timestamp'> & { userId?: string }
 ): Promise<Suggestion> => {
   try {
     const suggestionsCollectionRef = collection(db, "suggestions");
-    const newSuggestionRef = doc(suggestionsCollectionRef); // Auto-generate ID
+    const newSuggestionRef = doc(suggestionsCollectionRef); 
 
     const dataToSave: Omit<Suggestion, 'id'> = {
         ...suggestionData,
@@ -334,7 +363,7 @@ export const addSuggestionToFirestore = async (
     };
 
     await setDoc(newSuggestionRef, dataToSave);
-    return { id: newSuggestionRef.id, ...dataToSave, timestamp: Timestamp.now() } as Suggestion; // Optimistic timestamp
+    return { id: newSuggestionRef.id, ...dataToSave, timestamp: Timestamp.now() } as Suggestion;
   } catch (error) {
     console.error("Error adding suggestion to Firestore: ", error);
     throw error;
@@ -343,8 +372,6 @@ export const addSuggestionToFirestore = async (
 
 // --- Utility to get current Admin (needed for ensuring Admin role in AuthContext for example) ---
 export const getAdminUser = async (): Promise<User | null> => {
-  // This function is a bit of a workaround. Ideally, admin status is purely role-based.
-  // It finds a user whose email matches ADMIN_EMAIL.
   try {
     const usersRef = collection(db, "users");
     const q = query(usersRef, where("email", "==", ADMIN_EMAIL), limit(1));

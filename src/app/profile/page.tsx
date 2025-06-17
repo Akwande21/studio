@@ -6,7 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner';
 import Link from 'next/link';
-import { UserCircle, Edit3, LogInIcon, KeyRound } from 'lucide-react';
+import { UserCircle, Edit3, LogInIcon, KeyRound, BookCopy } from 'lucide-react'; // Added BookCopy
 import { useState, useTransition, useEffect } from 'react';
 import {
   Dialog,
@@ -25,10 +25,19 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useToast } from '@/hooks/use-toast';
 import { handleUpdateUserDetails } from '@/lib/actions';
-import { nonAdminRoles, type UserRole } from '@/lib/types';
+import { nonAdminRoles, type UserRole, type Grade, grades } from '@/lib/types'; // Added Grade, grades
 
 const editProfileFormSchema = z.object({
   role: z.enum(nonAdminRoles, { required_error: "Please select a role." }),
+  grade: z.enum(grades).optional(),
+}).superRefine((data, ctx) => {
+  if (data.role === "High School" && !data.grade) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Grade is required for High School students.",
+      path: ["grade"],
+    });
+  }
 });
 type EditProfileFormValues = z.infer<typeof editProfileFormSchema>;
 
@@ -43,12 +52,13 @@ export default function ProfilePage() {
   });
 
   useEffect(() => {
-    if (user && user.role !== 'Admin') {
+    if (user && isEditDialogOpen) { // Only reset form when dialog opens and user exists
       form.reset({
-        role: user.role as Exclude<UserRole, "Admin">,
+        role: user.role !== 'Admin' ? user.role as Exclude<UserRole, "Admin"> : undefined,
+        grade: user.role === "High School" ? user.grade : undefined,
       });
     }
-  }, [user, form, isEditDialogOpen]);
+  }, [user, form, isEditDialogOpen]); // Add isEditDialogOpen to dependency array
 
   if (loading) {
     return (
@@ -78,17 +88,23 @@ export default function ProfilePage() {
       const formData = new FormData();
       formData.append('userId', user.id);
       formData.append('name', user.name); // Name is not changed in this form
+      
       if (user.role !== 'Admin' && values.role) {
         formData.append('role', values.role);
+        if (values.role === "High School" && values.grade) {
+          formData.append('grade', values.grade);
+        } else if (values.role !== "High School") {
+           // If role is not High School, ensure grade is cleared (action handles this)
+        }
       }
       
       const result = await handleUpdateUserDetails(formData);
       if (result.success && result.user) {
         toast({
           title: "Profile Updated",
-          description: `Your role has been updated to ${result.user.role}.`,
+          description: `Your profile has been updated.`,
         });
-        await refreshUserProfile(); // Refresh user data in AuthContext
+        await refreshUserProfile(); 
         setIsEditDialogOpen(false);
       } else {
         toast({
@@ -99,6 +115,8 @@ export default function ProfilePage() {
       }
     });
   };
+  
+  const selectedRoleForDialog = form.watch("role");
 
   return (
     <div className="container mx-auto py-8 px-4">
@@ -121,12 +139,15 @@ export default function ProfilePage() {
               <p><span className="font-medium text-foreground">Name:</span> {user.name}</p>
               <p><span className="font-medium text-foreground">Email:</span> {user.email}</p>
               <p><span className="font-medium text-foreground">Role:</span> <span className="capitalize bg-primary/10 text-primary px-2 py-0.5 rounded-full text-xs">{user.role}</span></p>
+              {user.role === "High School" && user.grade && (
+                <p><span className="font-medium text-foreground">Grade:</span> <span className="capitalize bg-accent/10 text-accent px-2 py-0.5 rounded-full text-xs">{user.grade}</span></p>
+              )}
             </div>
           </div>
           
           <div className="flex flex-col sm:flex-row gap-3">
             <Button variant="outline" className="w-full" onClick={() => setIsEditDialogOpen(true)}>
-              <Edit3 className="mr-2 h-4 w-4" /> Change Role
+              <Edit3 className="mr-2 h-4 w-4" /> Change Role / Grade
             </Button>
             <Button variant="destructive" onClick={signOut} className="w-full">
               Sign Out
@@ -139,9 +160,9 @@ export default function ProfilePage() {
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
           <DialogContent className="sm:max-w-[425px]">
             <DialogHeader>
-              <DialogTitle>Change Your Role</DialogTitle>
+              <DialogTitle>Change Your Role / Grade</DialogTitle>
               <DialogDescription>
-                Select your new role. Admins cannot change their role.
+                Select your new role. Admins cannot change their role. High School students can also update their grade.
               </DialogDescription>
             </DialogHeader>
             <form onSubmit={form.handleSubmit(onEditFormSubmit)} className="space-y-4 py-4">
@@ -165,35 +186,75 @@ export default function ProfilePage() {
               </div>
               
               {user.role !== 'Admin' && (
-                 <div>
-                  <Label htmlFor="role">New Role</Label>
-                   <Controller
-                      name="role"
-                      control={form.control}
-                      defaultValue={user.role as Exclude<UserRole, "Admin">}
-                      render={({ field }) => (
-                        <Select 
-                          onValueChange={field.onChange} 
-                          value={field.value} // Use value instead of defaultValue here for controlled component
-                          disabled={isPending || user.role === 'Admin'}
-                        >
-                          <SelectTrigger id="role" className="mt-1">
-                            <SelectValue placeholder="Select new role" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {nonAdminRoles.map((roleOption) => (
-                              <SelectItem key={roleOption} value={roleOption}>
-                                {roleOption}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      )}
-                    />
-                  {form.formState.errors.role && (
-                    <p className="text-sm text-destructive mt-1">{form.formState.errors.role.message}</p>
-                  )}
-                </div>
+                 <>
+                    <div>
+                        <Label htmlFor="role">New Role</Label>
+                        <Controller
+                            name="role"
+                            control={form.control}
+                            defaultValue={user.role as Exclude<UserRole, "Admin">}
+                            render={({ field }) => (
+                                <Select 
+                                onValueChange={(value) => {
+                                    field.onChange(value);
+                                    if (value !== "High School") {
+                                        form.setValue("grade", undefined); // Clear grade if not High School
+                                    } else if (user.grade && value === "High School") {
+                                        form.setValue("grade", user.grade); // Pre-fill grade if switching to HS and had one
+                                    }
+                                }}
+                                value={field.value} 
+                                disabled={isPending || user.role === 'Admin'}
+                                >
+                                <SelectTrigger id="role" className="mt-1">
+                                    <SelectValue placeholder="Select new role" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {nonAdminRoles.map((roleOption) => (
+                                    <SelectItem key={roleOption} value={roleOption}>
+                                        {roleOption}
+                                    </SelectItem>
+                                    ))}
+                                </SelectContent>
+                                </Select>
+                            )}
+                        />
+                        {form.formState.errors.role && (
+                            <p className="text-sm text-destructive mt-1">{form.formState.errors.role.message}</p>
+                        )}
+                    </div>
+                    {selectedRoleForDialog === "High School" && (
+                         <div>
+                            <Label htmlFor="grade">Grade</Label>
+                            <Controller
+                                name="grade"
+                                control={form.control}
+                                defaultValue={user.grade}
+                                render={({ field }) => (
+                                    <Select 
+                                        onValueChange={field.onChange} 
+                                        value={field.value}
+                                        disabled={isPending}
+                                    >
+                                    <SelectTrigger id="grade" className="mt-1">
+                                        <SelectValue placeholder="Select grade" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {grades.map((gradeOption) => (
+                                        <SelectItem key={gradeOption} value={gradeOption}>
+                                            {gradeOption}
+                                        </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                    </Select>
+                                )}
+                            />
+                            {form.formState.errors.grade && (
+                                <p className="text-sm text-destructive mt-1">{form.formState.errors.grade.message}</p>
+                            )}
+                        </div>
+                    )}
+                 </>
               )}
 
               {user.role === 'Admin' && (
@@ -206,7 +267,7 @@ export default function ProfilePage() {
              
               <DialogFooter>
                 <DialogClose asChild>
-                  <Button type="button" variant="outline" disabled={isPending}>Cancel</Button>
+                  <Button type="button" variant="outline" disabled={isPending} onClick={() => form.reset()}>Cancel</Button>
                 </DialogClose>
                 <Button type="submit" disabled={isPending || user.role === 'Admin'}>
                   {isPending ? <LoadingSpinner size={16} className="mr-2" /> : <KeyRound className="mr-2 h-4 w-4"/>}

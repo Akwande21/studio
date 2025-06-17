@@ -7,16 +7,16 @@ import {
   toggleBookmarkInFirestore,
   submitRatingToFirestore,
   addPaperToFirestoreAndStorage,
-  updateUserProfileInFirestore, // This is the key function for updating user profiles
+  updateUserProfileInFirestore, 
   getUserProfileFromFirestore,
   addSuggestionToFirestore,
-} from './data'; // Firestore interaction functions
-import type { Paper, EducationalLevel, UserRole, Suggestion, User, Comment } from './types';
-import { educationalLevels, nonAdminRoles } from './types';
+} from './data'; 
+import type { Paper, EducationalLevel, UserRole, Suggestion, User, Comment, Grade } from './types'; // Added Grade
+import { educationalLevels, nonAdminRoles, grades } from './types'; // Added grades
 import { z } from 'zod';
 import { auth } from '@/lib/firebaseConfig';
 import { sendPasswordResetEmail } from 'firebase/auth';
-import { Timestamp } from 'firebase/firestore';
+import { Timestamp, deleteField } from 'firebase/firestore';
 
 
 export async function handleSuggestRelatedTopics(
@@ -109,6 +109,7 @@ const paperUploadActionSchema = z.object({
            .regex(/^\d{4}$/, "Year must be a 4-digit number.")
            .transform(val => parseInt(val, 10))
            .pipe(z.number().min(2000, "Year must be 2000 or later.").max(new Date().getFullYear() + 1, `Year cannot be too far in the future.`)),
+  grade: z.enum(grades).optional(), // Added grade
   file: z.instanceof(File, { message: "A PDF file is required." })
     .refine(file => file.name !== "" && file.size > 0, { message: "File cannot be empty." })
     .refine(file => file.size <= 5 * 1024 * 1024, { message: `File size should be less than 5MB.` }) 
@@ -117,6 +118,14 @@ const paperUploadActionSchema = z.object({
       { message: "Only .pdf files are accepted." }
     ),
   uploaderId: z.string().min(1, "Uploader ID is required."),
+}).superRefine((data, ctx) => {
+  if (data.level === "High School" && !data.grade) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Grade is required for High School level papers.",
+      path: ["grade"],
+    });
+  }
 });
 
 
@@ -127,15 +136,17 @@ export async function handlePaperUpload(formData: FormData) {
         return { success: false, message: "Uploader ID is missing. User must be authenticated." };
     }
 
-    const validatedData = paperUploadActionSchema.safeParse({
+    const rawData = {
       title: formData.get('title'),
       description: formData.get('description') || undefined,
       level: formData.get('level'),
       subject: formData.get('subject'),
       year: formData.get('year'),
+      grade: formData.get('grade') || undefined, // Get grade
       file: formData.get('file'),
       uploaderId: uploaderId,
-    });
+    };
+    const validatedData = paperUploadActionSchema.safeParse(rawData);
 
     if (!validatedData.success) {
       console.error("Server validation errors (handlePaperUpload):", validatedData.error.flatten().fieldErrors);
@@ -146,9 +157,15 @@ export async function handlePaperUpload(formData: FormData) {
       return { success: false, message: messages.length > 0 ? errorMessages : "Invalid form data.", errors: fieldErrors };
     }
 
-    const { title, description, level, subject, year, file } = validatedData.data;
+    const { title, description, level, subject, year, grade, file } = validatedData.data;
 
-    const paperMetadataToSave = { title, description, level, subject, year, uploaderId };
+    const paperMetadataToSave: Omit<Paper, 'id' | 'averageRating' | 'ratingsCount' | 'questions' | 'downloadUrl' | 'createdAt' | 'updatedAt' | 'uploaderId'> & { uploaderId: string, grade?: Grade } = { 
+        title, description, level, subject, year, uploaderId 
+    };
+    if (level === "High School" && grade) {
+        paperMetadataToSave.grade = grade;
+    }
+
 
     const newPaper = await addPaperToFirestoreAndStorage(paperMetadataToSave, file, uploaderId);
 
@@ -186,7 +203,16 @@ export async function handlePaperUpload(formData: FormData) {
 const updateUserSchema = z.object({
   userId: z.string().min(1, "User ID is required."),
   name: z.string().min(2, "Full name must be at least 2 characters.").max(50, "Full name must be 50 characters or less."),
-  role: z.enum(nonAdminRoles).optional(), // Role can only be one of the non-admin roles if provided
+  role: z.enum(nonAdminRoles).optional(), 
+  grade: z.enum(grades).optional(),
+}).superRefine((data, ctx) => {
+    if (data.role === "High School" && !data.grade) {
+        ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Grade is required if role is High School.",
+        path: ["grade"],
+        });
+    }
 });
 
 export async function handleUpdateUserDetails(formData: FormData) {
@@ -194,7 +220,8 @@ export async function handleUpdateUserDetails(formData: FormData) {
     const rawData = {
       userId: formData.get('userId'),
       name: formData.get('name'),
-      role: formData.get('role') || undefined, // Ensure undefined if not present
+      role: formData.get('role') || undefined, 
+      grade: formData.get('grade') || undefined,
     };
 
     const validationResult = updateUserSchema.safeParse(rawData);
@@ -203,28 +230,30 @@ export async function handleUpdateUserDetails(formData: FormData) {
       return { success: false, message: "Invalid data provided.", errors: validationResult.error.flatten().fieldErrors };
     }
 
-    const { userId, name, role } = validationResult.data;
+    const { userId, name, role, grade } = validationResult.data;
 
     const userBeingEdited = await getUserProfileFromFirestore(userId);
     if (!userBeingEdited) {
       return { success: false, message: "User not found." };
     }
 
-    // Prepare updates, always including name
-    const updates: Partial<Pick<User, 'name' | 'role'>> = { name };
+    const updates: Partial<Pick<User, 'name' | 'role' | 'grade'>> = { name };
 
     if (userBeingEdited.role === 'Admin') {
-      // Admins cannot change their own role via this form.
-      // The 'role' field from formData is ignored if the user is an Admin.
-      // Their role remains 'Admin'.
-      console.log("Admin user editing profile. Role change is disallowed for Admin via this form.");
+      // Admins cannot change their own role or grade via this form.
+      console.log("Admin user editing profile. Role/grade change is disallowed for Admin via this form.");
     } else if (role) {
-      // If a role is provided by the form (and it's a valid non-admin role due to schema validation)
-      // and the user being edited is NOT an Admin, apply the new role.
       updates.role = role;
+      if (role === "High School" && grade) {
+        updates.grade = grade;
+      } else if (role !== "High School") {
+        // If role is changed to something other than High School, clear the grade.
+        // Firestore specific: use deleteField() to remove field, or set to null.
+        // For simplicity in actions, we can pass null and data.ts can handle it.
+        (updates as any).grade = null; // Or use deleteField() in data.ts
+      }
     }
-    // If 'role' is not provided in formData (e.g. admin editing only name), user's role remains unchanged.
-
+    
     const updatedUser = await updateUserProfileInFirestore(userId, updates);
 
     if (updatedUser) {

@@ -1,10 +1,11 @@
+
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import type { Paper } from '@/lib/types';
 import { BookmarkButton } from './BookmarkButton';
-import { Star, CalendarDays, BookOpen, Download } from 'lucide-react';
+import { Star, CalendarDays, BookOpen, Download, GraduationCap } from 'lucide-react'; // Added GraduationCap
 import { DownloadPaperButton } from './DownloadPaperButton';
 
 interface PaperCardProps {
@@ -30,8 +31,13 @@ export function PaperCard({ paper }: PaperCardProps) {
           <BookOpen className="h-4 w-4 text-accent" />
           <span>{paper.subject}</span>
         </div>
-        <div className="flex items-center gap-2 text-muted-foreground">
+        <div className="flex items-center gap-2 text-muted-foreground flex-wrap">
           <Badge variant="outline">{paper.level}</Badge>
+          {paper.level === "High School" && paper.grade && (
+            <Badge variant="secondary" className="flex items-center gap-1">
+                <GraduationCap className="h-3.5 w-3.5"/> {paper.grade}
+            </Badge>
+          )}
           <span className="flex items-center gap-1">
             <CalendarDays className="h-4 w-4 text-accent" /> {paper.year}
           </span>
