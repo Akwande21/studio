@@ -25,23 +25,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const fetchAndSetUser = useCallback(async (firebaseUser: FirebaseUser | null) => {
     if (firebaseUser) {
-      const userProfile = await getUserProfileFromFirestore(firebaseUser.uid);
-      if (userProfile) {
+      // Special handling for the admin user to ensure their role is always correct.
+      if (firebaseUser.email === ADMIN_EMAIL_CONST) {
+        let userProfile = await getUserProfileFromFirestore(firebaseUser.uid);
+        // If profile exists but role is not Admin, or if profile doesn't exist at all, fix it.
+        if (!userProfile || userProfile.role !== 'Admin') {
+          console.log("Admin email detected. Ensuring Firestore profile has Admin role.");
+          try {
+            // This will create or overwrite the profile with the Admin role.
+            await addUserProfileToFirestore(firebaseUser.uid, userProfile?.name || "Admin User", firebaseUser.email!, "Admin");
+            // Re-fetch the profile to get the latest data with the correct role.
+            userProfile = await getUserProfileFromFirestore(firebaseUser.uid);
+          } catch(e) {
+             console.error("Failed to create or update Firestore profile for admin:", e);
+             setUser(null); // Fail safe
+          }
+        }
         setUser(userProfile);
       } else {
-        if (firebaseUser.email === ADMIN_EMAIL_CONST) {
-          try {
-            console.log("Admin user logged in, attempting to ensure Firestore profile exists.");
-            await addUserProfileToFirestore(firebaseUser.uid, "Admin User", firebaseUser.email!, "Admin");
-            const newProfile = await getUserProfileFromFirestore(firebaseUser.uid);
-            setUser(newProfile); 
-          } catch (e) {
-            console.error("Failed to create or fetch Firestore profile for admin:", e);
-            setUser(null); 
-          }
+        // Regular user logic
+        const userProfile = await getUserProfileFromFirestore(firebaseUser.uid);
+        if (userProfile) {
+          setUser(userProfile);
         } else {
-          console.warn(`User ${firebaseUser.uid} authenticated with Firebase, but no profile found in Firestore.`);
-          setUser(null); 
+           console.warn(`User ${firebaseUser.uid} authenticated with Firebase, but no profile found in Firestore.`);
+           // For non-admin, if there's no profile, they shouldn't be considered a valid user of the app.
+           setUser(null); 
         }
       }
     } else {
@@ -49,6 +58,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
     setLoading(false);
   }, []);
+
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
@@ -58,8 +68,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [fetchAndSetUser]);
 
   const signIn = useCallback(async (credentials: { email: string; password?: string }) => {
-    let passwordToUse: string | undefined = credentials.password;
+    let passwordToUse = credentials.password;
 
+    // Hardcode password check for the admin user for convenience
     if (credentials.email === ADMIN_EMAIL_CONST) {
       passwordToUse = "Nkosy@08";
       if (!credentials.password) { 
@@ -75,6 +86,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setLoading(true);
     try {
       await signInWithEmailAndPassword(auth, credentials.email, passwordToUse);
+      // onAuthStateChanged will handle setting user state and role verification.
     } catch (error: any) {
       console.error("Firebase Sign In Error:", error.code, error.message);
       let errorMessage = "An unknown error occurred. Please try again.";
@@ -89,8 +101,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         errorMessage = error.message;
       }
       toast({ title: "Sign In Failed", description: errorMessage, variant: "destructive" });
-      setLoading(false); 
-    } 
+    } finally {
+      // setLoading(false) will be called by fetchAndSetUser
+    }
   }, [toast]);
   
   const signUp = useCallback(async (details: { name: string; email: string; password?: string; role: UserRole; grade?: Grade }) => {
