@@ -136,6 +136,11 @@ export async function handlePaperUpload(formData: FormData) {
         return { success: false, message: "Uploader ID is missing. User must be authenticated." };
     }
 
+    const uploaderProfile = await getUserProfileFromFirestore(uploaderId);
+    if (!uploaderProfile || uploaderProfile.role !== 'Admin') {
+      return { success: false, message: "Permission denied. You must be an admin to upload papers." };
+    }
+
     const rawData = {
       title: formData.get('title'),
       description: formData.get('description') || undefined,
