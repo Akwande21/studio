@@ -63,7 +63,7 @@ export function PaperList() {
         if (!activeUiFilters.level && !activeUiFilters.grade) {
             basePapersForFiltering = basePapersForFiltering.filter(p => p.level === "High School" && p.grade === user.grade);
         }
-    } else if (user && (user.role === "College" || user.role === "University")) {
+    } else if (user && (user.role === "College" || user.role === "NCV" || user.role === "NATED" || user.role === "University")) {
         if (!activeUiFilters.level) { // Only apply if level filter not explicitly set
              basePapersForFiltering = basePapersForFiltering.filter(p => p.level === user.role);
         }
@@ -73,7 +73,7 @@ export function PaperList() {
     // This logic might need refinement if user context filter and UI filter interact in complex ways.
     // For now, let's keep UI options based on the *broader* set initially determined by role, or all papers.
     let papersForUiOptions = [...allPapers];
-    if (user && (user.role === "High School" || user.role === "College" || user.role === "University")) {
+    if (user && (user.role === "High School" || user.role === "College" || user.role === "NCV" || user.role === "NATED" || user.role === "University")) {
       papersForUiOptions = allPapers.filter(p => p.level === user.role || (user.role === "High School" && p.level === "High School")); // Ensure options are relevant
     }
     currentAvailableSubjects = Array.from(new Set(papersForUiOptions.map(p => p.subject))).sort();
@@ -164,7 +164,7 @@ export function PaperList() {
             <Frown className="mx-auto h-12 w-12 text-muted-foreground" />
             <h3 className="mt-4 text-xl font-medium text-foreground">No Papers Found</h3>
             <p className="mt-2 text-sm text-muted-foreground">
-                { (user && (user.role === "High School" || user.role === "College" || user.role === "University")) || Object.values(activeUiFilters).some(v => v) 
+                { (user && (user.role === "High School" || user.role === "College" || user.role === "NCV" || user.role === "NATED" || user.role === "University")) || Object.values(activeUiFilters).some(v => v) 
                   ? "Try adjusting your filter criteria or check back later. No papers match your current selection."
                   : "No papers available at the moment. Admins can upload new papers."
                 }

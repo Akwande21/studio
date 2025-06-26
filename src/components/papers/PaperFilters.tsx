@@ -84,11 +84,14 @@ export function PaperFilters({ onFilterChange, availableSubjects, availableYears
             </SelectTrigger>
             <SelectContent>
               <SelectItem value={ALL_LEVELS_VALUE}>All Levels</SelectItem>
-              {educationalLevels.map((lvl) => ( 
-                <SelectItem key={lvl} value={lvl}>{lvl}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+              {educationalLevels.map((level) => (
+              <SelectItem key={level} value={level}>
+                {level === "NCV" ? "NCV College" : 
+                 level === "NATED" ? "NATED College" : 
+                 level}
+              </SelectItem>
+            ))}
+          </SelectContent>
         </div>
         {level === "High School" && (
              <div>

@@ -98,7 +98,10 @@ export function SignUpForm() {
               <SelectContent>
                 {selectableRoles.map((lvl) => (
                   <SelectItem key={lvl} value={lvl}>
-                    {lvl === "High School" ? "High School Student" : `${lvl} Student`}
+                    {lvl === "High School" ? "High School Student" : 
+                     lvl === "NCV" ? "NCV Student" :
+                     lvl === "NATED" ? "NATED Student" :
+                     `${lvl} Student`}
                   </SelectItem>
                 ))}
               </SelectContent>

@@ -70,6 +70,15 @@ app.post('/upload', upload.single('file'), async (req, res) => {
       });
     }
 
+    // Validate educational level
+    const validLevels = ['High School', 'College', 'NCV', 'NATED', 'University'];
+    if (!validLevels.includes(level)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid educational level provided'
+      });
+    }
+
     // Validate high school grade requirement
     if (level === 'High School' && !grade) {
       return res.status(400).json({

@@ -8,14 +8,14 @@ export interface Question {
 }
 
 // For user roles
-export type UserRole = "High School" | "College" | "University" | "Admin";
-export const userRoles: UserRole[] = ["High School", "College", "University", "Admin"];
-export const nonAdminRoles: Exclude<UserRole, "Admin">[] = ["High School", "College", "University"];
+export type UserRole = "High School" | "College" | "NCV" | "NATED" | "University" | "Admin";
+export const userRoles: UserRole[] = ["High School", "College", "NCV", "NATED", "University", "Admin"];
+export const nonAdminRoles: Exclude<UserRole, "Admin">[] = ["High School", "College", "NCV", "NATED", "University"];
 
 
 // For paper educational levels
-export type EducationalLevel = "High School" | "College" | "University";
-export const educationalLevels: EducationalLevel[] = ["High School", "College", "University"];
+export type EducationalLevel = "High School" | "College" | "NCV" | "NATED" | "University";
+export const educationalLevels: EducationalLevel[] = ["High School", "College", "NCV", "NATED", "University"];
 
 // For High School Grades
 export type Grade = "Grade 10" | "Grade 11" | "Grade 12";
