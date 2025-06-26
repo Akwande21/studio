@@ -387,12 +387,14 @@ export function ScientificCalculator() {
   ];
 
   return (
-    <div className="w-full max-w-2xl mx-auto space-y-4">
+    <div className="w-full max-w-4xl mx-auto space-y-2 sm:space-y-4 p-2 sm:p-4">
       <Card className="shadow-2xl border-border">
-        <CardHeader className="p-4">
-          <div className="flex justify-between items-center">
-            <CardTitle className="text-lg font-mono tracking-wider">Advanced Scientific Calculator</CardTitle>
-            <div className="flex gap-2">
+        <CardHeader className="p-2 sm:p-4">
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
+            <CardTitle className="text-base sm:text-lg font-mono tracking-wider text-center sm:text-left">
+              Advanced Scientific Calculator
+            </CardTitle>
+            <div className="flex gap-2 justify-center sm:justify-end">
               <Badge variant="outline" className="text-xs">
                 {angleMode}
               </Badge>
@@ -404,12 +406,12 @@ export function ScientificCalculator() {
             </div>
           </div>
         </CardHeader>
-        <CardContent className="p-4">
+        <CardContent className="p-2 sm:p-4">
           <Input
             type="text"
             value={displayValue}
             readOnly
-            className="h-16 text-2xl sm:text-3xl text-right bg-muted/30 dark:bg-muted/50 border-2 border-input mb-4 font-mono rounded-lg focus-visible:ring-0 focus-visible:ring-offset-0"
+            className="h-12 sm:h-16 text-lg sm:text-2xl md:text-3xl text-right bg-muted/30 dark:bg-muted/50 border-2 border-input mb-2 sm:mb-4 font-mono rounded-lg focus-visible:ring-0 focus-visible:ring-offset-0"
             aria-label="Calculator display"
           />
           <div className="grid grid-cols-6 gap-1 sm:gap-2">
@@ -418,10 +420,10 @@ export function ScientificCalculator() {
                 key={`${btn.label}-${index}`}
                 onClick={btn.action}
                 variant="outline"
-                className={`text-xs sm:text-sm h-10 sm:h-12 ${btn.className || 'bg-background hover:bg-muted/50'} ${btn.span ? `col-span-${btn.span}` : ''}`}
+                className={`text-xs sm:text-sm h-8 sm:h-10 md:h-12 ${btn.className || 'bg-background hover:bg-muted/50'} ${btn.span ? `col-span-${btn.span}` : ''} min-w-0 p-1 sm:p-2`}
                 aria-label={btn.label}
               >
-                {btn.label}
+                <span className="truncate">{btn.label}</span>
               </Button>
             ))}
           </div>
@@ -430,13 +432,13 @@ export function ScientificCalculator() {
 
       {history.length > 0 && (
         <Card className="shadow-lg">
-          <CardHeader className="p-3">
+          <CardHeader className="p-2 sm:p-3">
             <CardTitle className="text-sm">Calculation History</CardTitle>
           </CardHeader>
-          <CardContent className="p-3">
-            <div className="space-y-1 max-h-32 overflow-y-auto">
+          <CardContent className="p-2 sm:p-3">
+            <div className="space-y-1 max-h-24 sm:max-h-32 overflow-y-auto">
               {history.map((calc, index) => (
-                <div key={index} className="text-xs font-mono text-muted-foreground p-1 bg-muted/20 rounded">
+                <div key={index} className="text-xs font-mono text-muted-foreground p-1 bg-muted/20 rounded break-all">
                   {calc}
                 </div>
               ))}
