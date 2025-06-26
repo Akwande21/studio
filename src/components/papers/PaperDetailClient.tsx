@@ -171,7 +171,9 @@ export function PaperDetailClient({ paper: initialPaper }: PaperDetailClientProp
                   <Skeleton className="h-12 w-full" />
                 </div>
               ) : (
-                <CommentBox paperId={paper.id} initialComments={comments} />
+                <div className="space-y-4">
+                  <CommentBox paperId={paper.id} initialComments={comments} />
+                </div>
               )}
           </div>
         </section>

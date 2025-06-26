@@ -1,4 +1,3 @@
-
 "use server";
 import { suggestRelatedTopics as suggestRelatedTopicsFlow, type SuggestRelatedTopicsInput, type SuggestRelatedTopicsOutput } from '@/ai/flows/suggest-related-topics';
 import { explainConcept as explainConceptFlow, type ExplainConceptInput, type ExplainConceptOutput } from '@/ai/flows/explain-concept-flow';
@@ -129,12 +128,21 @@ export async function handleExplainQuestionConcept(
 
 export async function handleAddComment(paperId: string, userId: string, text: string) {
   try {
+    // Process mentions in the comment text
+    const mentionRegex = /@(\w+)/g;
+    const mentions = [];
+    let match;
+
+    while ((match = mentionRegex.exec(text)) !== null) {
+      mentions.push(match[1]);
+    }
+
     const comment = await addCommentToFirestore(paperId, userId, text);
     const serializableComment = {
         ...comment,
         timestamp: comment.timestamp.toDate().toISOString(),
       };
-    return { success: true, comment: serializableComment };
+    return { success: true, message: mentions.length > 0 ? `Comment added with ${mentions.length} mention${mentions.length === 1 ? '' : 's'}` : "Comment added successfully", comment: serializableComment };
   } catch (error) {
     console.error("Error in handleAddComment action:", error);
     return { success: false, message: (error as Error).message };
@@ -309,7 +317,7 @@ export async function handleUpdateUserDetails(formData: FormData) {
       role: nonAdminRoles.includes(rawDataFromForm.role as Exclude<UserRole, "Admin">) ? rawDataFromForm.role as Exclude<UserRole, "Admin"> : undefined,
       grade: rawDataFromForm.grade || undefined,
     };
-    
+
     const validationResult = updateUserSchema.safeParse(dataForZod);
 
     if (!validationResult.success) {
@@ -359,7 +367,7 @@ export async function handleUpdateUserDetails(formData: FormData) {
          updates.grade = undefined; // Signal to remove grade field
       }
     }
-    
+
     const updatedUser = await updateUserProfileInFirestore(userId, updates);
 
     if (updatedUser) {
