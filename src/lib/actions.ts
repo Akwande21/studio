@@ -173,10 +173,14 @@ const paperUploadActionSchema = z.object({
   grade: z.enum(grades).optional(), 
   file: z.instanceof(File, { message: "A PDF file is required." })
     .refine(file => file.name !== "" && file.size > 0, { message: "File cannot be empty." })
-    .refine(file => file.size <= 5 * 1024 * 1024, { message: `File size should be less than 5MB.` }) 
+    .refine(file => file.size <= 5 * 1024 * 1024, { message: `File size must be less than 5MB. Current size: ${file?.size ? (file.size / (1024 * 1024)).toFixed(2) : 'unknown'} MB.` }) 
     .refine(
       (file) => ["application/pdf"].includes(file.type),
-      { message: "Only .pdf files are accepted." }
+      { message: `Only PDF files are accepted. Current file type: ${file?.type || 'unknown'}.` }
+    )
+    .refine(
+      (file) => file.name.toLowerCase().endsWith('.pdf'),
+      { message: "File must have a .pdf extension." }
     ),
   uploaderId: z.string().min(1, "Uploader ID is required."),
 }).superRefine((data, ctx) => {
@@ -198,8 +202,11 @@ export async function handlePaperUpload(formData: FormData) {
     }
 
     const uploaderProfile = await getUserProfileFromFirestore(uploaderId);
-    if (!uploaderProfile || uploaderProfile.role !== 'Admin') {
-      return { success: false, message: "Permission denied. You must be an admin to upload papers." };
+    if (!uploaderProfile) {
+      return { success: false, message: "User profile not found. Please ensure you are properly authenticated." };
+    }
+    if (uploaderProfile.role !== 'Admin') {
+      return { success: false, message: "Access denied. Only administrators can upload papers to the system." };
     }
 
     const rawData = {

@@ -60,11 +60,18 @@ export default function AdminUploadPage() {
 
   return (
     <div className="container mx-auto py-8 px-4">
-      <div className="mb-8 flex items-center gap-3">
-        <UploadCloud className="h-8 w-8 text-primary" />
-        <h1 className="text-3xl font-bold font-headline">Upload New Question Paper</h1>
+      <div className="mb-8">
+        <div className="flex items-center gap-3 mb-4">
+          <UploadCloud className="h-8 w-8 text-primary" />
+          <h1 className="text-3xl font-bold font-headline">Upload New Question Paper</h1>
+        </div>
+        <p className="text-muted-foreground">
+          Add new question papers to the system. All uploads are reviewed and processed automatically.
+        </p>
       </div>
-      <FileUploadForm />
+      <div className="max-w-2xl">
+        <FileUploadForm />
+      </div>
     </div>
   );
 }

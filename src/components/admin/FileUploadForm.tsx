@@ -22,7 +22,7 @@ import { useToast } from "@/hooks/use-toast";
 import { handlePaperUpload } from "@/lib/actions";
 import { useState, useTransition, useEffect } from "react";
 import { LoadingSpinner } from "../shared/LoadingSpinner";
-import { UploadCloud } from "lucide-react";
+import { UploadCloud, FileText, X } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
@@ -54,6 +54,7 @@ const formSchema = z.object({
 
 export function FileUploadForm() {
   const [isPending, startTransition] = useTransition();
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const { toast } = useToast();
   const { user } = useAuth(); 
 
@@ -97,6 +98,7 @@ export function FileUploadForm() {
             description: `Paper "${result.paper.title}" has been added.`,
           });
           form.reset();
+          setSelectedFile(null);
         } else {
           if (result.errors) {
             console.error("Server validation errors (payload):", result.errors);
@@ -238,11 +240,41 @@ export function FileUploadForm() {
             <FormItem>
               <FormLabel>Question Paper (PDF)</FormLabel>
               <FormControl>
-                <Input 
-                  type="file" 
-                  accept="application/pdf"
-                  onChange={(e) => field.onChange(e.target.files)} 
-                />
+                <div className="space-y-4">
+                  <Input 
+                    type="file" 
+                    accept="application/pdf"
+                    onChange={(e) => {
+                      const files = e.target.files;
+                      field.onChange(files);
+                      setSelectedFile(files?.[0] || null);
+                    }}
+                  />
+                  {selectedFile && (
+                    <div className="flex items-center gap-3 p-3 bg-muted rounded-lg">
+                      <FileText className="h-8 w-8 text-red-500" />
+                      <div className="flex-1">
+                        <p className="font-medium text-sm">{selectedFile.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {(selectedFile.size / (1024 * 1024)).toFixed(2)} MB
+                        </p>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setSelectedFile(null);
+                          field.onChange(null);
+                          const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+                          if (fileInput) fileInput.value = '';
+                        }}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  )}
+                </div>
               </FormControl>
               <FormDescription>
                 Upload the question paper in PDF format. Max size: 5MB.
