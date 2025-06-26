@@ -1,4 +1,3 @@
-
 "use client";
 import { useState, FormEvent } from 'react';
 import { Button } from '@/components/ui/button';
@@ -22,50 +21,52 @@ export function SignInForm() {
 
   return (
     <Card className="w-full max-w-md shadow-xl">
-      <CardHeader className="text-center">
-        <CardTitle className="text-2xl font-headline">Welcome Back!</CardTitle>
-        <CardDescription>Sign in to access your papers and study tools.</CardDescription>
+      <CardHeader className="space-y-1 text-center p-4 sm:p-6">
+        <CardTitle className="text-xl sm:text-2xl font-bold">Welcome back</CardTitle>
+        <CardDescription className="text-sm sm:text-base">Sign in to your account to continue</CardDescription>
       </CardHeader>
       <form onSubmit={handleSubmit}>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
-              type="email"
-              placeholder="you@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              autoComplete="email"
-              className="focus-visible:ring-primary"
-            />
-          </div>
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="password">Password</Label>
-              <Button variant="link" asChild className="p-0 h-auto text-xs text-muted-foreground">
-                <Link href="/auth/forgot-password">Forgot password?</Link>
-              </Button>
+        <CardContent className="p-4 sm:p-6">
+          <div className="space-y-3 sm:space-y-4">
+            <div>
+              <Label htmlFor="email" className="text-sm">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="you@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                autoComplete="email"
+                className="mt-1 h-9 sm:h-10 focus-visible:ring-primary"
+              />
             </div>
-            <Input
-              id="password"
-              type="password"
-              placeholder="••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              autoComplete="current-password"
-              className="focus-visible:ring-primary"
-            />
+            <div>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="password" className="text-sm">Password</Label>
+                <Button variant="link" asChild className="p-0 h-auto text-xs sm:text-sm text-muted-foreground">
+                  <Link href="/auth/forgot-password">Forgot password?</Link>
+                </Button>
+              </div>
+              <Input
+                id="password"
+                type="password"
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                autoComplete="current-password"
+                className="mt-1 h-9 sm:h-10 focus-visible:ring-primary"
+              />
+            </div>
           </div>
         </CardContent>
-        <CardFooter className="flex flex-col gap-4">
-          <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? <LoadingSpinner size={20} className="mr-2"/> : <LogIn className="mr-2 h-4 w-4" /> }
-            Sign In
+        <CardFooter className="text-center p-4 sm:p-6 pt-0">
+          <Button type="submit" className="w-full h-9 sm:h-10" disabled={loading}>
+            {loading ? <LoadingSpinner size={16} className="mr-2"/> : <LogIn className="mr-2 h-4 w-4" /> }
+            <span className="text-sm sm:text-base">Sign In</span>
           </Button>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-xs sm:text-sm text-muted-foreground">
             Don&apos;t have an account?{' '}
             <Button variant="link" asChild className="p-0 h-auto text-primary">
               <Link href="/auth/signup">Sign up</Link>

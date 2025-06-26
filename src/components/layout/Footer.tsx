@@ -1,4 +1,3 @@
-
 "use client"; // Add "use client" for useAuth hook
 
 import { Logo } from '@/components/shared/Logo';
@@ -7,25 +6,28 @@ import { Button } from '../ui/button';
 import { useAuth } from '@/hooks/useAuth'; // Import useAuth
 
 export function Footer() {
-  const { isAuthenticated, user } = useAuth(); // Get auth status and user
-
-  const showContactAdminLink = !isAuthenticated || (isAuthenticated && user?.role !== 'Admin');
-
   return (
-    <footer className="border-t border-border/40 py-6 md:py-8">
-      <div className="container flex flex-col md:flex-row items-center justify-between gap-4">
-        <Logo className="text-sm" />
-        <nav className="flex gap-4 items-center">
-            {showContactAdminLink && (
-              <Button variant="link" asChild className="text-muted-foreground hover:text-primary p-0 h-auto text-sm">
-                  <Link href="/contact-admin">Contact Admin</Link>
-              </Button>
-            )}
-            {/* Add other links like Privacy Policy, Terms of Service if needed */}
-        </nav>
-        <p className="text-balance text-center text-sm leading-loose text-muted-foreground md:text-right">
-          &copy; {new Date().getFullYear()} PaperVault. All rights reserved.
-        </p>
+    <footer className="border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <div className="container flex flex-col items-center justify-between gap-3 sm:gap-4 md:h-16 md:flex-row px-2 sm:px-4 py-4 sm:py-6 md:py-0">
+        <div className="flex flex-col sm:flex-row items-center gap-2 text-center sm:text-left">
+          <Logo />
+          <span className="text-xs sm:text-sm text-muted-foreground">
+            © 2024 PaperVault. All rights reserved.
+          </span>
+        </div>
+        <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-4 text-xs sm:text-sm text-muted-foreground">
+          <Link href="/contact-admin" className="hover:text-primary transition-colors">
+            Contact Admin
+          </Link>
+          <span className="hidden sm:inline">•</span>
+          <Link href="#" className="hover:text-primary transition-colors">
+            Privacy Policy
+          </Link>
+          <span className="hidden sm:inline">•</span>
+          <Link href="#" className="hover:text-primary transition-colors">
+            Terms of Service
+          </Link>
+        </div>
       </div>
     </footer>
   );
