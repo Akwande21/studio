@@ -7,3 +7,5 @@
 
 import '@/ai/flows/suggest-related-topics.ts';
 import '@/ai/flows/explain-concept-flow.ts';
+import '@/ai/flows/generate-questions-flow.ts';
+import '@/ai/flows/study-plan-flow.ts';

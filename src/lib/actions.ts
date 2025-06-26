@@ -2,6 +2,8 @@
 "use server";
 import { suggestRelatedTopics as suggestRelatedTopicsFlow, type SuggestRelatedTopicsInput, type SuggestRelatedTopicsOutput } from '@/ai/flows/suggest-related-topics';
 import { explainConcept as explainConceptFlow, type ExplainConceptInput, type ExplainConceptOutput } from '@/ai/flows/explain-concept-flow';
+import { generateQuestions as generateQuestionsFlow, type GenerateQuestionsInput, type GenerateQuestionsOutput } from '@/ai/flows/generate-questions-flow';
+import { generateStudyPlan as studyPlanFlow, type StudyPlanInput, type StudyPlanOutput } from '@/ai/flows/study-plan-flow';
 import {
   addCommentToFirestore,
   toggleBookmarkInFirestore,
@@ -39,6 +41,65 @@ export async function handleSuggestRelatedTopics(
       searchQueries: [],
       suitabilityCheckPassed: false,
       retrievedInformation: undefined,
+    };
+  }
+}
+
+export async function handleGenerateQuestions(
+  topic: string,
+  level: EducationalLevel,
+  subject: string,
+  questionCount: number = 5,
+  questionType: 'multiple-choice' | 'short-answer' | 'essay' | 'mixed' = 'mixed'
+): Promise<GenerateQuestionsOutput> {
+  try {
+    const input: GenerateQuestionsInput = {
+      topic,
+      level,
+      subject,
+      questionCount,
+      questionType,
+    };
+    const result = await generateQuestionsFlow(input);
+    return result;
+  } catch (error) {
+    console.error("Error in handleGenerateQuestions:", error);
+    return {
+      questions: [],
+    };
+  }
+}
+
+export async function handleGenerateStudyPlan(
+  subject: string,
+  level: EducationalLevel,
+  weakAreas: string[],
+  strongAreas: string[],
+  timeAvailable: number,
+  examDate?: string,
+  learningStyle: 'visual' | 'auditory' | 'kinesthetic' | 'reading' = 'reading'
+): Promise<StudyPlanOutput> {
+  try {
+    const input: StudyPlanInput = {
+      subject,
+      level,
+      weakAreas,
+      strongAreas,
+      timeAvailable,
+      examDate,
+      learningStyle,
+    };
+    const result = await studyPlanFlow(input);
+    return result;
+  } catch (error) {
+    console.error("Error in handleGenerateStudyPlan:", error);
+    return {
+      plan: {
+        overview: "Unable to generate study plan at this time.",
+        weeklySchedule: [],
+        resources: [],
+        milestones: [],
+      },
     };
   }
 }
