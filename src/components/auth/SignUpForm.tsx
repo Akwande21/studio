@@ -7,8 +7,8 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/hooks/useAuth';
-import type { UserRole, Grade } from '@/lib/types'; // Added Grade
-import { userRoles, grades } from '@/lib/types'; // Added grades
+import type { UserRole, Grade, UniversityYear, UniversityType } from '@/lib/types'; // Added Grade, UniversityYear, UniversityType
+import { userRoles, grades, universityYears, universityTypes } from '@/lib/types'; // Added grades, universityYears, universityTypes
 import Link from 'next/link';
 import { LoadingSpinner } from '@/components/shared/LoadingSpinner';
 import { UserPlus } from 'lucide-react';
@@ -20,6 +20,8 @@ export function SignUpForm() {
   const [password, setPassword] = useState('');
   const [role, setRole] = useState<UserRole | ''>('');
   const [grade, setGrade] = useState<Grade | ''>(''); // Added grade state
+  const [universityYear, setUniversityYear] = useState<UniversityYear | ''>(''); // Added university year state
+  const [universityType, setUniversityType] = useState<UniversityType | ''>(''); // Added university type state
   const { signUp, loading } = useAuth();
   const { toast } = useToast();
 
@@ -33,11 +35,23 @@ export function SignUpForm() {
         toast({title: "Grade Required", description: "Please select your grade for High School.", variant: "destructive"});
         return;
     }
+    if (role === "University" && (!universityYear || !universityType)) {
+        toast({title: "University Details Required", description: "Please select your year level and study type for University.", variant: "destructive"});
+        return;
+    }
     if (!password) {
         toast({title: "Password Required", description: "Please enter a password.", variant: "destructive"});
         return;
     }
-    await signUp({ name, email, password, role, grade: role === "High School" ? grade as Grade : undefined });
+    await signUp({ 
+      name, 
+      email, 
+      password, 
+      role, 
+      grade: role === "High School" ? grade as Grade : undefined,
+      universityYear: role === "University" ? universityYear as UniversityYear : undefined,
+      universityType: role === "University" ? universityType as UniversityType : undefined
+    });
   };
 
   const selectableRoles = userRoles.filter(r => r !== 'Admin');
@@ -91,7 +105,11 @@ export function SignUpForm() {
           </div>
           <div className="space-y-2">
             <Label htmlFor="role">I am a...</Label>
-            <Select value={role} onValueChange={(value) => { setRole(value as UserRole); if (value !== "High School") setGrade(''); }} required>
+            <Select value={role} onValueChange={(value) => { 
+              setRole(value as UserRole); 
+              if (value !== "High School") setGrade(''); 
+              if (value !== "University") { setUniversityYear(''); setUniversityType(''); }
+            }} required>
               <SelectTrigger id="role" className="focus-visible:ring-primary">
                 <SelectValue placeholder="Select your role" />
               </SelectTrigger>
@@ -126,9 +144,44 @@ export function SignUpForm() {
             </div>
           )}
 
+          {role === "University" && (
+            <>
+              <div className="space-y-2">
+                <Label htmlFor="universityYear">Year Level</Label>
+                <Select value={universityYear} onValueChange={(value) => setUniversityYear(value as UniversityYear)} required>
+                  <SelectTrigger id="universityYear" className="focus-visible:ring-primary">
+                    <SelectValue placeholder="Select your year level" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {universityYears.map((year) => (
+                      <SelectItem key={year} value={year}>
+                        {year}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="universityType">Study Type</Label>
+                <Select value={universityType} onValueChange={(value) => setUniversityType(value as UniversityType)} required>
+                  <SelectTrigger id="universityType" className="focus-visible:ring-primary">
+                    <SelectValue placeholder="Select study type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {universityTypes.map((type) => (
+                      <SelectItem key={type} value={type}>
+                        {type}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </>
+          )}
+
         </CardContent>
         <CardFooter className="flex flex-col gap-4">
-          <Button type="submit" className="w-full" disabled={loading || !role || (role === "High School" && !grade) }>
+          <Button type="submit" className="w-full" disabled={loading || !role || (role === "High School" && !grade) || (role === "University" && (!universityYear || !universityType)) }>
             {loading ? <LoadingSpinner size={20} className="mr-2"/> : <UserPlus className="mr-2 h-4 w-4" /> }
             Sign Up
           </Button>

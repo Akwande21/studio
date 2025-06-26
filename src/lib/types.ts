@@ -21,6 +21,14 @@ export const educationalLevels: EducationalLevel[] = ["High School", "College", 
 export type Grade = "Grade 10" | "Grade 11" | "Grade 12";
 export const grades: Grade[] = ["Grade 10", "Grade 11", "Grade 12"];
 
+// For University Year Levels
+export type UniversityYear = "1st Year" | "2nd Year" | "3rd Year" | "4th Year";
+export const universityYears: UniversityYear[] = ["1st Year", "2nd Year", "3rd Year", "4th Year"];
+
+// For University Study Types
+export type UniversityType = "Degree" | "Diploma";
+export const universityTypes: UniversityType[] = ["Degree", "Diploma"];
+
 
 export interface Paper {
   id: string; // Firestore document ID
@@ -29,6 +37,8 @@ export interface Paper {
   subject: string;
   year: number;
   grade?: Grade; // Added for High School papers
+  universityYear?: UniversityYear; // Added for University papers
+  universityType?: UniversityType; // Added for University papers (Degree/Diploma)
   questions: Question[]; // Stored as an array of objects in Firestore
   averageRating: number;
   ratingsCount: number;
@@ -57,6 +67,8 @@ export interface User {
   email: string;
   role: UserRole;
   grade?: Grade; // Added for High School students
+  universityYear?: UniversityYear; // Added for University students
+  universityType?: UniversityType; // Added for University students (Degree/Diploma)
   avatarUrl?: string;
   dataAiHint?: string; 
   bookmarkedPaperIds?: string[]; // Array of paper IDs
@@ -75,7 +87,7 @@ export interface RatingLogEntry {
 export interface AuthContextType {
   user: User | null;
   signIn: (credentials: { email: string; password?: string }) => Promise<void>; 
-  signUp: (details: { name: string; email: string; password?: string; role: UserRole; grade?: Grade }) => Promise<void>; // Added grade
+  signUp: (details: { name: string; email: string; password?: string; role: UserRole; grade?: Grade; universityYear?: UniversityYear; universityType?: UniversityType }) => Promise<void>; // Added grade and university fields
   signOut: () => void;
   sendPasswordResetEmail: (email: string) => Promise<void>;
   loading: boolean;

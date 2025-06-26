@@ -4,12 +4,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { educationalLevels, type EducationalLevel, grades, type Grade } from "@/lib/types"; 
+import { educationalLevels, type EducationalLevel, grades, type Grade, universityYears, type UniversityYear, universityTypes, type UniversityType } from "@/lib/types"; 
 import { FilterIcon, SearchIcon, XIcon } from "lucide-react";
 import React, { useEffect, useState } from "react";
 
 interface PaperFiltersProps {
-  onFilterChange: (filters: { level?: EducationalLevel; subject?: string; year?: number; grade?: Grade; query?: string }) => void; 
+  onFilterChange: (filters: { level?: EducationalLevel; subject?: string; year?: number; grade?: Grade; universityYear?: UniversityYear; universityType?: UniversityType; query?: string }) => void; 
   availableSubjects: string[];
   availableYears: number[];
 }
@@ -25,6 +25,8 @@ export function PaperFilters({ onFilterChange, availableSubjects, availableYears
   const [subject, setSubject] = useState("");
   const [year, setYear] = useState<number | "">("");
   const [grade, setGrade] = useState<Grade | "">("");
+  const [universityYear, setUniversityYear] = useState<UniversityYear | "">("");
+  const [universityType, setUniversityType] = useState<UniversityType | "">("");
 
   useEffect(() => {
     const timeoutId = setTimeout(() => {
@@ -34,6 +36,8 @@ export function PaperFilters({ onFilterChange, availableSubjects, availableYears
             subject: subject || undefined, 
             year: year || undefined,
             grade: (level === "High School" && grade) ? grade : undefined,
+            universityYear: (level === "University" && universityYear) ? universityYear : undefined,
+            universityType: (level === "University" && universityType) ? universityType : undefined,
         });
     }, 300); 
     return () => clearTimeout(timeoutId);
@@ -45,10 +49,12 @@ export function PaperFilters({ onFilterChange, availableSubjects, availableYears
     setSubject("");
     setYear("");
     setGrade("");
+    setUniversityYear("");
+    setUniversityType("");
     onFilterChange({});
   };
 
-  const hasActiveFilters = query || level || subject || year || (level === "High School" && grade);
+  const hasActiveFilters = query || level || subject || year || (level === "High School" && grade) || (level === "University" && (universityYear || universityType));
 
   return (
     <div className="mb-8 p-6 bg-card rounded-lg shadow">
@@ -76,6 +82,10 @@ export function PaperFilters({ onFilterChange, availableSubjects, availableYears
                 setLevel(newLevel);
                 if (newLevel !== "High School") {
                     setGrade(""); // Reset grade if level is not High School
+                }
+                if (newLevel !== "University") {
+                    setUniversityYear(""); // Reset university year if level is not University
+                    setUniversityType(""); // Reset university type if level is not University
                 }
             }}
           >
@@ -112,7 +122,45 @@ export function PaperFilters({ onFilterChange, availableSubjects, availableYears
                 </Select>
             </div>
         )}
-        {(level !== "High School" && <div className="hidden lg:block"></div>) /* Placeholder for grid alignment */}
+        {level === "University" && (
+             <>
+                <div>
+                    <Label htmlFor="university-year-filter" className="font-semibold">Year Level</Label>
+                    <Select 
+                        value={universityYear || ""} 
+                        onValueChange={(value) => setUniversityYear(value === "all-university-years" ? "" : value as UniversityYear | "")}
+                    >
+                        <SelectTrigger id="university-year-filter" className="mt-1">
+                        <SelectValue placeholder="Select Year" />
+                        </SelectTrigger>
+                        <SelectContent>
+                        <SelectItem value="all-university-years">All Years</SelectItem>
+                        {universityYears.map((year) => (
+                            <SelectItem key={year} value={year}>{year}</SelectItem>
+                        ))}
+                        </SelectContent>
+                    </Select>
+                </div>
+                <div>
+                    <Label htmlFor="university-type-filter" className="font-semibold">Study Type</Label>
+                    <Select 
+                        value={universityType || ""} 
+                        onValueChange={(value) => setUniversityType(value === "all-university-types" ? "" : value as UniversityType | "")}
+                    >
+                        <SelectTrigger id="university-type-filter" className="mt-1">
+                        <SelectValue placeholder="Select Type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                        <SelectItem value="all-university-types">All Types</SelectItem>
+                        {universityTypes.map((type) => (
+                            <SelectItem key={type} value={type}>{type}</SelectItem>
+                        ))}
+                        </SelectContent>
+                    </Select>
+                </div>
+             </>
+        )}
+        {(level !== "High School" && level !== "University" && <div className="hidden lg:block"></div>) /* Placeholder for grid alignment */}
 
 
         <div>

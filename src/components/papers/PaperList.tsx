@@ -2,7 +2,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from 'react';
-import type { Paper, EducationalLevel, UserRole, Grade } from '@/lib/types'; // Added Grade
+import type { Paper, EducationalLevel, UserRole, Grade, UniversityYear, UniversityType } from '@/lib/types'; // Added Grade, UniversityYear, UniversityType
 import { PaperCard } from './PaperCard';
 import { PaperFilters } from './PaperFilters';
 import { getPapersFromFirestore } from '@/lib/data'; 
@@ -18,7 +18,7 @@ export function PaperList() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
-  const [activeUiFilters, setActiveUiFilters] = useState<{ level?: EducationalLevel; subject?: string; year?: number; grade?: Grade; query?: string }>({});
+  const [activeUiFilters, setActiveUiFilters] = useState<{ level?: EducationalLevel; subject?: string; year?: number; grade?: Grade; universityYear?: UniversityYear; universityType?: UniversityType; query?: string }>({});
   
   const [availableSubjectsAll, setAvailableSubjectsAll] = useState<string[]>([]);
   const [availableYearsAll, setAvailableYearsAll] = useState<number[]>([]);
@@ -63,7 +63,16 @@ export function PaperList() {
         if (!activeUiFilters.level && !activeUiFilters.grade) {
             basePapersForFiltering = basePapersForFiltering.filter(p => p.level === "High School" && p.grade === user.grade);
         }
-    } else if (user && (user.role === "College" || user.role === "NCV" || user.role === "NATED" || user.role === "University")) {
+    } else if (user && user.role === "University" && user.universityYear && user.universityType) {
+        // If UI filters are not set for level, university year, or type, apply user's context
+        if (!activeUiFilters.level && !activeUiFilters.universityYear && !activeUiFilters.universityType) {
+            basePapersForFiltering = basePapersForFiltering.filter(p => 
+                p.level === "University" && 
+                p.universityYear === user.universityYear && 
+                p.universityType === user.universityType
+            );
+        }
+    } else if (user && (user.role === "College" || user.role === "NCV" || user.role === "NATED")) {
         if (!activeUiFilters.level) { // Only apply if level filter not explicitly set
              basePapersForFiltering = basePapersForFiltering.filter(p => p.level === user.role);
         }
@@ -74,7 +83,7 @@ export function PaperList() {
     // For now, let's keep UI options based on the *broader* set initially determined by role, or all papers.
     let papersForUiOptions = [...allPapers];
     if (user && (user.role === "High School" || user.role === "College" || user.role === "NCV" || user.role === "NATED" || user.role === "University")) {
-      papersForUiOptions = allPapers.filter(p => p.level === user.role || (user.role === "High School" && p.level === "High School")); // Ensure options are relevant
+      papersForUiOptions = allPapers.filter(p => p.level === user.role); // Ensure options are relevant
     }
     currentAvailableSubjects = Array.from(new Set(papersForUiOptions.map(p => p.subject))).sort();
     currentAvailableYears = Array.from(new Set(papersForUiOptions.map(p => p.year))).sort((a, b) => b - a);
@@ -94,6 +103,14 @@ export function PaperList() {
       tempPapers = tempPapers.filter(p => p.level === activeUiFilters.level);
       if (activeUiFilters.level === "High School" && activeUiFilters.grade) {
         tempPapers = tempPapers.filter(p => p.grade === activeUiFilters.grade);
+      }
+      if (activeUiFilters.level === "University") {
+        if (activeUiFilters.universityYear) {
+          tempPapers = tempPapers.filter(p => p.universityYear === activeUiFilters.universityYear);
+        }
+        if (activeUiFilters.universityType) {
+          tempPapers = tempPapers.filter(p => p.universityType === activeUiFilters.universityType);
+        }
       }
     } else if (user && user.role === "High School" && user.grade && !activeUiFilters.grade) {
         // If user is HS with grade, and no level filter is set, but also no UI grade filter is set,

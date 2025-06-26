@@ -87,6 +87,15 @@ app.post('/upload', upload.single('file'), async (req, res) => {
       });
     }
 
+    // Validate university requirements
+    const { universityYear, universityType } = req.body;
+    if (level === 'University' && (!universityYear || !universityType)) {
+      return res.status(400).json({
+        success: false,
+        message: 'University year and type are required for University level papers'
+      });
+    }
+
     // Generate unique filename
     const timestamp = Date.now();
     const sanitizedTitle = title.replace(/[^a-zA-Z0-9]/g, '_');
@@ -125,6 +134,8 @@ app.post('/upload', upload.single('file'), async (req, res) => {
       subject,
       year: yearNum,
       grade: level === 'High School' ? grade : null,
+      university_year: level === 'University' ? universityYear : null,
+      university_type: level === 'University' ? universityType : null,
       file_name: file.originalname,
       file_path: filePath,
       file_url: publicUrlData.publicUrl,
@@ -166,6 +177,8 @@ app.post('/upload', upload.single('file'), async (req, res) => {
         subject: dbData.subject,
         year: dbData.year,
         grade: dbData.grade,
+        university_year: dbData.university_year,
+        university_type: dbData.university_type,
         file_url: dbData.file_url,
         uploaded_at: dbData.uploaded_at
       }
@@ -184,7 +197,7 @@ app.post('/upload', upload.single('file'), async (req, res) => {
 // Get papers endpoint with filtering
 app.get('/papers', async (req, res) => {
   try {
-    const { level, subject, year, grade, limit = 50, offset = 0 } = req.query;
+    const { level, subject, year, grade, universityYear, universityType, limit = 50, offset = 0 } = req.query;
     
     let query = supabase
       .from('papers')
@@ -197,6 +210,8 @@ app.get('/papers', async (req, res) => {
     if (subject) query = query.ilike('subject', `%${subject}%`);
     if (year) query = query.eq('year', parseInt(year));
     if (grade) query = query.eq('grade', grade);
+    if (universityYear) query = query.eq('university_year', universityYear);
+    if (universityType) query = query.eq('university_type', universityType);
 
     const { data, error, count } = await query;
 

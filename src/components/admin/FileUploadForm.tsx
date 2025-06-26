@@ -17,7 +17,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { educationalLevels, type EducationalLevel, grades, type Grade } from "@/lib/types"; // Added grades, Grade
+import { educationalLevels, type EducationalLevel, grades, type Grade, universityYears, type UniversityYear, universityTypes, type UniversityType } from "@/lib/types"; // Added grades, Grade, universityYears, UniversityYear, universityTypes, UniversityType
 import { useToast } from "@/hooks/use-toast";
 import { handlePaperUpload } from "@/lib/actions";
 import { useState, useTransition, useEffect } from "react";
@@ -35,6 +35,8 @@ const formSchema = z.object({
   subject: z.string().min(2, "Subject must be at least 2 characters.").max(50),
   year: z.coerce.number().min(2000, "Year must be 2000 or later.").max(new Date().getFullYear() + 1, `Year cannot be in the far future.`),
   grade: z.enum(grades).optional(), // Added grade
+  universityYear: z.enum(universityYears).optional(), // Added university year
+  universityType: z.enum(universityTypes).optional(), // Added university type
   file: z
     .custom<FileList>((val) => val instanceof FileList && val.length > 0, "Please select a PDF file.")
     .refine((files) => files?.[0]?.size <= MAX_FILE_SIZE, `File size should be less than 5MB.`)
@@ -48,6 +50,13 @@ const formSchema = z.object({
       code: z.ZodIssueCode.custom,
       message: "Grade is required if level is High School.",
       path: ["grade"],
+    });
+  }
+  if (data.level === "University" && (!data.universityYear || !data.universityType)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "University year and type are required if level is University.",
+      path: ["universityYear"],
     });
   }
 });
@@ -66,6 +75,8 @@ export function FileUploadForm() {
       subject: "",
       year: new Date().getFullYear(),
       grade: undefined,
+      universityYear: undefined,
+      universityType: undefined,
     },
   });
 
@@ -86,6 +97,12 @@ export function FileUploadForm() {
       formData.append("year", String(values.year));
       if (values.level === "High School" && values.grade) {
         formData.append("grade", values.grade);
+      }
+      if (values.level === "University" && values.universityYear) {
+        formData.append("universityYear", values.universityYear);
+      }
+      if (values.level === "University" && values.universityType) {
+        formData.append("universityType", values.universityType);
       }
       formData.append("file", values.file[0]);
       formData.append("uploaderId", user.id); 
@@ -162,6 +179,10 @@ export function FileUploadForm() {
                     if (value !== "High School") {
                       form.setValue("grade", undefined); // Clear grade if not High School
                     }
+                    if (value !== "University") {
+                      form.setValue("universityYear", undefined); // Clear university year if not University
+                      form.setValue("universityType", undefined); // Clear university type if not University
+                    }
                   }} 
                   defaultValue={field.value}
                 >
@@ -203,6 +224,54 @@ export function FileUploadForm() {
                 </FormItem>
               )}
             />
+          )}
+          {selectedLevel === "University" && (
+            <>
+              <FormField
+                control={form.control}
+                name="universityYear"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Year Level</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select year level" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {universityYears.map(year => (
+                          <SelectItem key={year} value={year}>{year}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="universityType"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Study Type</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select study type" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {universityTypes.map(type => (
+                          <SelectItem key={type} value={type}>{type}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </>
           )}
         </div>
          <div className="grid md:grid-cols-2 gap-6">
