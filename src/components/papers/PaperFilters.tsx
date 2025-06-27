@@ -160,7 +160,7 @@ export function PaperFilters({ onFilterChange, availableSubjects, availableYears
                 </div>
              </>
         )}
-        {(level !== "High School" && level !== "University" && <div className="hidden lg:block"></div>) /* Placeholder for grid alignment */}
+        {(level !== "High School" && level !== "University") && <div className="hidden lg:block"></div> /* Placeholder for grid alignment */}
 
 
         <div>
